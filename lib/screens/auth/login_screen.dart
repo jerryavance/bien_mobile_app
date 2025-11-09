@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _rememberMe = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -193,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        // Navigate to forgot password screen
+                        Navigator.pushNamed(context, '/forgot-password');
                       },
                       child: Text(
                         'Forgot Password?',
@@ -210,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 
                 // Login Button
                 ElevatedButton(
-                  onPressed: _handleLogin,
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -220,84 +221,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
-                    'Sign In',
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Sign In',
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ).animate().fadeIn(delay: 1200.ms).slideY(begin: 0.3, end: 0),
-                
-                const SizedBox(height: 24),
-                
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textTertiary,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                  ],
-                ).animate().fadeIn(delay: 1400.ms),
-                
-                const SizedBox(height: 24),
-                
-                // Social Login Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Google sign in
-                        },
-                        icon: Icon(Icons.g_mobiledata, color: AppTheme.errorColor),
-                        label: Text(
-                          'Google',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: AppTheme.borderColor),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Apple sign in
-                        },
-                        icon: Icon(Icons.apple, color: AppTheme.textPrimary),
-                        label: Text(
-                          'Apple',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: AppTheme.borderColor),
-                        ),
-                      ),
-                    ),
-                  ],
-                ).animate().fadeIn(delay: 1600.ms).slideY(begin: 0.3, end: 0),
                 
                 const SizedBox(height: 32),
                 
@@ -324,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ],
-                ).animate().fadeIn(delay: 1800.ms),
+                ).animate().fadeIn(delay: 1400.ms),
               ],
             ),
           ),
@@ -333,16 +273,23 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleLogin() {
-    // if (_formKey.currentState!.validate()) {
-      // Handle login logic
+  void _handleLogin() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() => _isLoading = false);
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Login successful!'),
           backgroundColor: AppTheme.successColor,
         ),
       );
-    // }
-    Navigator.pushReplacementNamed(context, '/home');
+      
+      Navigator.pushReplacementNamed(context, '/home');
+    }
   }
 }

@@ -29,6 +29,9 @@ import 'screens/features/tax_calculator_screen.dart';
 //auth screens
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/auth/reset_password_screen.dart';
+import 'screens/auth/otp_verification_screen.dart';
 
 //onboarding screens
 import 'screens/onboarding/onboarding_screen.dart';
@@ -87,6 +90,11 @@ class FintechApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/otp-verification': (context) => const OtpVerificationScreen(),
+        '/reset-password': (context) => const ResetPasswordScreen(),
+
+
         '/transactions': (context) => const TransactionsScreen(),
         '/investments': (context) => const InvestmentScreen(),
         '/budget': (context) => const BudgetScreen(),

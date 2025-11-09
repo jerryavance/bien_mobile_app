@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/design_system/app_theme.dart';
 
@@ -19,6 +20,19 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _agreeToTerms = false;
+  bool _isLoading = false;
+
+  // Phone number country codes for East Africa and Zambia
+  final List<Map<String, String>> _countryCodes = [
+    {'code': '+256', 'country': 'Uganda', 'flag': '🇺🇬'},
+    {'code': '+254', 'country': 'Kenya', 'flag': '🇰🇪'},
+    {'code': '+255', 'country': 'Tanzania', 'flag': '🇹🇿'},
+    {'code': '+250', 'country': 'Rwanda', 'flag': '🇷🇼'},
+    {'code': '+257', 'country': 'Burundi', 'flag': '🇧🇮'},
+    {'code': '+260', 'country': 'Zambia', 'flag': '🇿🇲'},
+  ];
+  
+  String _selectedCountryCode = '+256';
 
   @override
   void dispose() {
@@ -64,7 +78,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(width: 48), // Balance the back button
+                    const SizedBox(width: 48),
                   ],
                 ).animate().fadeIn(delay: 200.ms),
                 
@@ -110,6 +124,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (value.length < 2) {
                       return 'Name must be at least 2 characters';
                     }
+                    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
+                      return 'Name can only contain letters';
+                    }
                     return null;
                   },
                 ).animate().fadeIn(delay: 600.ms).slideX(begin: 0.3, end: 0),
@@ -152,38 +169,90 @@ class _SignupScreenState extends State<SignupScreen> {
                 
                 const SizedBox(height: 20),
                 
-                // Phone Field
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined, color: AppTheme.textSecondary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
+                // Phone Field with Country Code
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Country Code Selector
+                    Container(
+                      height: 60,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCountryCode,
+                          icon: Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
+                          items: _countryCodes.map((country) {
+                            return DropdownMenuItem<String>(
+                              value: country['code'],
+                              child: Row(
+                                children: [
+                                  Text(
+                                    country['flag']!,
+                                    style: const TextStyle(fontSize: 20),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    country['code']!,
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedCountryCode = value!);
+                          },
+                        ),
+                      ),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
+                    const SizedBox(width: 12),
+                    // Phone Number Field
+                    Expanded(
+                      child: TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Phone Number',
+                          hintText: '700 000 000',
+                          prefixIcon: Icon(Icons.phone_outlined, color: AppTheme.textSecondary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppTheme.borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppTheme.borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: AppTheme.surfaceColor,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter phone number';
+                          }
+                          if (value.length < 9) {
+                            return 'Phone number must be 9-10 digits';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.surfaceColor,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    if (value.length < 10) {
-                      return 'Please enter a valid phone number';
-                    }
-                    return null;
-                  },
+                  ],
                 ).animate().fadeIn(delay: 1000.ms).slideX(begin: 0.3, end: 0),
                 
                 const SizedBox(height: 20),
@@ -230,7 +299,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       return 'Password must be at least 8 characters';
                     }
                     if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)').hasMatch(value)) {
-                      return 'Password must contain uppercase, lowercase and number';
+                      return 'Must contain uppercase, lowercase and number';
                     }
                     return null;
                   },
@@ -331,7 +400,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 
                 // Sign Up Button
                 ElevatedButton(
-                  onPressed: _agreeToTerms ? _handleSignup : null,
+                  onPressed: (_agreeToTerms && !_isLoading) ? _handleSignup : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -341,84 +410,23 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
-                    'Create Account',
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Create Account',
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ).animate().fadeIn(delay: 1800.ms).slideY(begin: 0.3, end: 0),
-                
-                const SizedBox(height: 24),
-                
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textTertiary,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                  ],
-                ).animate().fadeIn(delay: 2000.ms),
-                
-                const SizedBox(height: 24),
-                
-                // Social Sign Up Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Google sign up
-                        },
-                        icon: Icon(Icons.g_mobiledata, color: AppTheme.errorColor),
-                        label: Text(
-                          'Google',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: AppTheme.borderColor),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Apple sign up
-                        },
-                        icon: Icon(Icons.apple, color: AppTheme.textPrimary),
-                        label: Text(
-                          'Apple',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: AppTheme.borderColor),
-                        ),
-                      ),
-                    ),
-                  ],
-                ).animate().fadeIn(delay: 2200.ms).slideY(begin: 0.3, end: 0),
                 
                 const SizedBox(height: 32),
                 
@@ -443,7 +451,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                   ],
-                ).animate().fadeIn(delay: 2400.ms),
+                ).animate().fadeIn(delay: 2000.ms),
               ],
             ),
           ),
@@ -452,14 +460,26 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _handleSignup() {
+  void _handleSignup() async {
     if (_formKey.currentState!.validate()) {
-      // Handle signup logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Account created successfully!'),
-          backgroundColor: AppTheme.successColor,
-        ),
+      setState(() => _isLoading = true);
+      
+      final fullPhoneNumber = '$_selectedCountryCode${_phoneController.text}';
+      
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() => _isLoading = false);
+      
+      // Navigate to OTP verification
+      Navigator.pushNamed(
+        context,
+        '/otp-verification',
+        arguments: {
+          'identifier': fullPhoneNumber,
+          'isEmail': false,
+          'verificationType': 'signup',
+        },
       );
     }
   }
