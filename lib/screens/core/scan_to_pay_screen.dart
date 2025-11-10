@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'dart:io';
 import '../../core/design_system/app_theme.dart';
 
 class ScanToPayScreen extends StatefulWidget {
@@ -10,6 +9,7 @@ class ScanToPayScreen extends StatefulWidget {
   State<ScanToPayScreen> createState() => _ScanToPayScreenState();
 }
 
+bool isTorchOn = false; // Add this at the top of _ScanToPayScreenState
 class _ScanToPayScreenState extends State<ScanToPayScreen> {
   final MobileScannerController cameraController = MobileScannerController();
   String? scannedData;
@@ -205,22 +205,34 @@ class _ScanToPayScreenState extends State<ScanToPayScreen> {
                         style: AppTheme.heading4.copyWith(color: Colors.white),
                       ),
                       const Spacer(),
+                      // IconButton(
+                      //   onPressed: () async {
+                      //     await cameraController.toggleTorch();
+                      //     setState(() {});
+                      //   },
+                      //   icon: ValueListenableBuilder(
+                      //     valueListenable: cameraController.torchState,
+                      //     builder: (context, state, _) {
+                      //       if (state == TorchState.on) {
+                      //         return const Icon(Icons.flash_on, color: Colors.white);
+                      //       } else {
+                      //         return const Icon(Icons.flash_off, color: Colors.white);
+                      //       }
+                      //     },
+                      //   ),
+                      // ),
+
                       IconButton(
                         onPressed: () async {
                           await cameraController.toggleTorch();
-                          setState(() {});
+                          setState(() => isTorchOn = !isTorchOn);
                         },
-                        icon: ValueListenableBuilder(
-                          valueListenable: cameraController.torchState,
-                          builder: (context, state, _) {
-                            if (state == TorchState.on) {
-                              return const Icon(Icons.flash_on, color: Colors.white);
-                            } else {
-                              return const Icon(Icons.flash_off, color: Colors.white);
-                            }
-                          },
+                        icon: Icon(
+                          isTorchOn ? Icons.flash_on : Icons.flash_off,
+                          color: Colors.white,
                         ),
                       ),
+
                     ],
                   ),
                 ),

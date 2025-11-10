@@ -447,7 +447,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${daysLeft} days left',
+                  '$daysLeft days left',
                   style: AppTheme.caption.copyWith(
                     color: daysLeft < 30 ? AppTheme.errorColor : AppTheme.successColor,
                     fontWeight: FontWeight.w600,

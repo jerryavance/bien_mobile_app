@@ -11,7 +11,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   String _selectedFilter = 'All';
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   final List<String> _filterOptions = ['All', 'Transactions', 'Security', 'Updates', 'Promotions'];
 

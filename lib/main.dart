@@ -40,11 +40,7 @@ import 'screens/onboarding/splash_screen.dart';
 //wallet screens
 import 'screens/wallet/cashout_screen.dart';
 import 'screens/wallet/topup_screen.dart';
-import 'package:provider/provider.dart';
 // Providers
-import 'providers/auth_provider.dart';
-import 'providers/wallet_provider.dart';
-import 'providers/transaction_provider.dart';
 
 //Product screens
 import 'screens/products/airtime_screen.dart';

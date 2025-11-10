@@ -12,7 +12,7 @@ class HelpSupportScreen extends StatefulWidget {
 class _HelpSupportScreenState extends State<HelpSupportScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'All';
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   final List<String> _categories = [
     'All',
@@ -324,6 +324,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             color: AppTheme.textSecondary,
           ),
         ),
+        trailing: Icon(
+          faq['isExpanded'] ? Icons.expand_less : Icons.expand_more,
+          color: AppTheme.textSecondary,
+        ),
+        onExpansionChanged: (expanded) {
+          setState(() {
+            faq['isExpanded'] = expanded;
+          });
+        },
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -336,15 +345,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             ),
           ),
         ],
-        trailing: Icon(
-          faq['isExpanded'] ? Icons.expand_less : Icons.expand_more,
-          color: AppTheme.textSecondary,
-        ),
-        onExpansionChanged: (expanded) {
-          setState(() {
-            faq['isExpanded'] = expanded;
-          });
-        },
       ),
     ).animate().fadeIn(delay: (1000 + index * 100).ms).slideX(begin: 0.3, end: 0);
   }

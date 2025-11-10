@@ -545,7 +545,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             decoration: const InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,

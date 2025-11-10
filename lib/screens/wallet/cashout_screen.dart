@@ -198,7 +198,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
               if (_selectedMethod == 'Mobile Money') ...[
                 // Network Selection
                 DropdownButtonFormField<String>(
-                  value: _selectedNetwork,
+                  initialValue: _selectedNetwork,
                   decoration: const InputDecoration(
                     labelText: 'Select Network',
                     prefixIcon: Icon(Icons.network_cell),

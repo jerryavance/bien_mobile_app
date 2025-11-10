@@ -134,7 +134,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> {
                 ],
               ),
               child: DropdownButtonFormField<String>(
-                value: _selectedLoanType,
+                initialValue: _selectedLoanType,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,

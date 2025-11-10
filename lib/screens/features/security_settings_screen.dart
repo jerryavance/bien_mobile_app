@@ -141,7 +141,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                     _biometricEnabled = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               delay: 400,
             ),
@@ -157,7 +157,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                     _twoFactorEnabled = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               delay: 600,
             ),
@@ -173,7 +173,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                     _pinEnabled = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               delay: 800,
             ),
@@ -202,7 +202,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                     _notificationsEnabled = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               delay: 1200,
             ),
@@ -218,7 +218,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                     _locationEnabled = value;
                   });
                 },
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: AppTheme.primaryColor,
               ),
               delay: 1400,
             ),

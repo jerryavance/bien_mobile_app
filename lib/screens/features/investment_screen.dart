@@ -282,7 +282,7 @@ class _InvestmentScreenState extends State<InvestmentScreen> with SingleTickerPr
           
           const SizedBox(height: 16),
           
-          ..._holdings.map((holding) => _buildHoldingItem(holding)).toList(),
+          ..._holdings.map((holding) => _buildHoldingItem(holding)),
           
           const SizedBox(height: 24),
           
@@ -609,7 +609,7 @@ class _InvestmentScreenState extends State<InvestmentScreen> with SingleTickerPr
           
           const SizedBox(height: 16),
           
-          ...watchlist.map((stock) => _buildWatchlistItem(stock)).toList(),
+          ...watchlist.map((stock) => _buildWatchlistItem(stock)),
           
           const SizedBox(height: 24),
           

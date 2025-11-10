@@ -271,7 +271,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
             
             const SizedBox(height: 16),
             
-            ..._budgetCategories.map((category) => _buildBudgetCategory(category)).toList(),
+            ..._budgetCategories.map((category) => _buildBudgetCategory(category)),
             
             const SizedBox(height: 24),
             

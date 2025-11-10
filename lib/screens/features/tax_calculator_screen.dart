@@ -140,7 +140,7 @@ class _TaxCalculatorScreenState extends State<TaxCalculatorScreen> {
                 ],
               ),
               child: DropdownButtonFormField<String>(
-                value: _selectedFilingStatus,
+                initialValue: _selectedFilingStatus,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
@@ -188,7 +188,7 @@ class _TaxCalculatorScreenState extends State<TaxCalculatorScreen> {
                 ],
               ),
               child: DropdownButtonFormField<String>(
-                value: _selectedState,
+                initialValue: _selectedState,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
