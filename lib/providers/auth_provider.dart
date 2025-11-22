@@ -1,10 +1,9 @@
 // ==========================================
-// COMPLETE FILE: lib/providers/auth_provider.dart
-// Production-ready authentication state management
+// FIXED: lib/providers/auth_provider.dart
+// Corrected to properly handle identifier storage for OTP resend
 // ==========================================
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import '../models/auth_tokens.dart';
 import '../models/api_response.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
@@ -19,17 +18,15 @@ class AuthProvider with ChangeNotifier {
   bool _isAuthenticated = false;
   String? _errorMessage;
 
-  // OTP verification state
-  String? _pendingVerificationUserId;  // CHANGED: Store userId instead of identifier
-  String? _pendingVerificationPhone;
+  // ✅ Store identifier (phone/email) for resend OTP
+  String? _pendingVerificationIdentifier;
 
   // Getters
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
   String? get errorMessage => _errorMessage;
-  String? get pendingVerificationUserId => _pendingVerificationUserId;  // CHANGED
-  String? get pendingVerificationPhone => _pendingVerificationPhone;
+  String? get pendingVerificationPhone => _pendingVerificationIdentifier;
 
   // ==========================================
   // INITIALIZATION
@@ -49,7 +46,7 @@ class AuthProvider with ChangeNotifier {
         _user = await _authService.getCurrentUser();
         
         if (_user != null) {
-          print('AuthProvider: User loaded from storage: ${_user!.fullName}');
+          print('AuthProvider: User loaded: ${_user!.fullName}');
           await refreshUserProfile();
         }
       } else {
@@ -94,11 +91,10 @@ class AuthProvider with ChangeNotifier {
 
       _isLoading = false;
 
-      if (response.success && response.data != null) {
+      if (response.success) {
         print('AuthProvider: Registration successful');
-        // CHANGED: Store userId from response data
-        _pendingVerificationUserId = response.data!['userId'];
-        _pendingVerificationPhone = phoneNumber;
+        // ✅ Store phone for resend OTP (backend needs identifier)
+        _pendingVerificationIdentifier = phoneNumber;
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -118,30 +114,33 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ==========================================
-  // OTP VERIFICATION (Signup & Login)
+  // OTP VERIFICATION
   // ==========================================
 
+  /// Verify OTP - userId is automatically retrieved from storage by AuthService
   Future<bool> verifyOtp({
     required String otp,
     required String verificationType,
   }) async {
-    // CHANGED: Check for userId instead of identifier
-    if (_pendingVerificationUserId == null) {
-      print('AuthProvider: No pending verification userId');
-      _errorMessage = 'No pending verification';
-      notifyListeners();
-      return false;
-    }
-
-    print('AuthProvider: Verifying OTP for ${verificationType}...');
+    print('AuthProvider: Verifying OTP for $verificationType...');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // CHANGED: Pass userId instead of identifier
+      // Get userId from storage
+      final userId = await _storage.getUserId();
+      
+      if (userId == null || userId.isEmpty) {
+        _isLoading = false;
+        _errorMessage = 'Session expired. Please start the verification process again.';
+        notifyListeners();
+        return false;
+      }
+
+      // Call AuthService with userId
       final response = await _authService.verifyOtp(
-        userId: _pendingVerificationUserId!,
+        userId: userId,
         otp: otp,
         verificationType: verificationType,
       );
@@ -153,11 +152,7 @@ class AuthProvider with ChangeNotifier {
         _user = response.data;
         _isAuthenticated = true;
         _errorMessage = null;
-        
-        // Clear pending verification
-        _pendingVerificationUserId = null;
-        _pendingVerificationPhone = null;
-        
+        _pendingVerificationIdentifier = null;
         notifyListeners();
         return true;
       } else {
@@ -175,28 +170,30 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // CHANGED: Updated resendOtp to match API expectations
+  /// ✅ FIXED: Resend OTP using identifier (phone/email), not userId
   Future<bool> resendOtp({
     required String verificationType,
-    String channel = 'sms',  // Added channel parameter
+    String channel = 'sms',
   }) async {
-    // Use phone number as identifier for resend
-    if (_pendingVerificationPhone == null) {
-      _errorMessage = 'No pending verification';
+    print('AuthProvider: Resending OTP...');
+    
+    // ✅ Check if we have the identifier stored
+    if (_pendingVerificationIdentifier == null || _pendingVerificationIdentifier!.isEmpty) {
+      _errorMessage = 'Session expired. Please start the verification process again.';
       notifyListeners();
       return false;
     }
-
-    print('AuthProvider: Resending OTP...');
+    
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      // ✅ Call AuthService with identifier (phone/email)
       final response = await _authService.resendOtp(
-        identifier: _pendingVerificationPhone!,
+        identifier: _pendingVerificationIdentifier!,
         verificationType: verificationType,
-        channel: channel, userId: '',
+        channel: channel,
       );
 
       _isLoading = false;
@@ -245,27 +242,19 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
 
       if (response.success && response.data != null) {
-        print('AuthProvider: Login successful for user: ${response.data!.fullName}');
+        print('AuthProvider: Login successful');
         _user = response.data;
         _isAuthenticated = true;
         _errorMessage = null;
         notifyListeners();
         return true;
       } else {
-        // Check if OTP verification is required
+        // ✅ Check if OTP verification is required
         final errorMsg = response.message?.toLowerCase() ?? '';
         if (errorMsg.contains('verify') || errorMsg.contains('pending')) {
           print('AuthProvider: OTP verification required');
-          
-          // Try to extract userId from error response
-          if (response.errors != null && response.errors!.containsKey('userId')) {
-            _pendingVerificationUserId = response.errors!['userId'];
-            _pendingVerificationPhone = identifier;
-          } else {
-            // If userId not in response, we'll need user to provide it
-            _pendingVerificationUserId = identifier;  // Store identifier temporarily
-            _pendingVerificationPhone = identifier;
-          }
+          // ✅ Store identifier for resend OTP
+          _pendingVerificationIdentifier = identifier;
         }
         
         print('AuthProvider: Login failed - ${response.message}');
@@ -302,7 +291,8 @@ class AuthProvider with ChangeNotifier {
 
       if (response.success) {
         print('AuthProvider: Password reset request successful');
-        _pendingVerificationUserId = identifier;
+        // ✅ Store identifier for display and resend
+        _pendingVerificationIdentifier = identifier;
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -321,15 +311,11 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// ✅ Password reset flow uses resetToken, not userId
   Future<bool> verifyResetOtp({
+    required String resetToken,
     required String otp,
   }) async {
-    if (_pendingVerificationUserId == null) {
-      _errorMessage = 'No pending verification';
-      notifyListeners();
-      return false;
-    }
-
     print('AuthProvider: Verifying reset OTP...');
     _isLoading = true;
     _errorMessage = null;
@@ -337,8 +323,8 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _authService.verifyResetOtp(
-        identifier: _pendingVerificationUserId!,
-        otp: otp, userId: '',
+        resetToken: resetToken,
+        otp: otp,
       );
 
       _isLoading = false;
@@ -364,15 +350,9 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> resetPassword({
-    required String otp,
+    required String verifiedResetToken,
     required String newPassword,
   }) async {
-    if (_pendingVerificationUserId == null) {
-      _errorMessage = 'No pending verification';
-      notifyListeners();
-      return false;
-    }
-
     print('AuthProvider: Resetting password...');
     _isLoading = true;
     _errorMessage = null;
@@ -380,9 +360,8 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _authService.resetPassword(
-        identifier: _pendingVerificationUserId!,
-        otp: otp,
-        newPassword: newPassword, userId: '',
+        verifiedResetToken: verifiedResetToken,
+        newPassword: newPassword,
       );
 
       _isLoading = false;
@@ -390,7 +369,7 @@ class AuthProvider with ChangeNotifier {
       if (response.success) {
         print('AuthProvider: Password reset successful');
         _errorMessage = null;
-        _pendingVerificationUserId = null;
+        _pendingVerificationIdentifier = null;
         notifyListeners();
         return true;
       } else {
@@ -489,16 +468,15 @@ class AuthProvider with ChangeNotifier {
 
     try {
       await _authService.logout();
-      print('AuthProvider: Logout request sent to backend');
+      print('AuthProvider: Logout completed');
     } catch (e) {
-      print('AuthProvider: Logout request failed: $e');
+      print('AuthProvider: Logout error: $e');
     }
 
     _user = null;
     _isAuthenticated = false;
     _errorMessage = null;
-    _pendingVerificationUserId = null;
-    _pendingVerificationPhone = null;
+    _pendingVerificationIdentifier = null;
     _isLoading = false;
     
     print('AuthProvider: Local state cleared');
@@ -514,16 +492,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // CHANGED: Updated to store userId
-  void setPendingVerification(String userId, {String? phone}) {
-    _pendingVerificationUserId = userId;
-    _pendingVerificationPhone = phone;
+  /// ✅ Set pending verification identifier (phone/email) for OTP resend
+  void setPendingVerification(String identifier) {
+    _pendingVerificationIdentifier = identifier;
     notifyListeners();
   }
 
   void clearPendingVerification() {
-    _pendingVerificationUserId = null;
-    _pendingVerificationPhone = null;
+    _pendingVerificationIdentifier = null;
     notifyListeners();
   }
 
@@ -535,4 +511,30 @@ class AuthProvider with ChangeNotifier {
   String? get userDisplayName => _user?.fullName;
   String? get userEmail => _user?.email;
   String? get userPhone => _user?.phoneNumber;
+  
+  /// Check if userId exists in storage
+  Future<bool> hasStoredUserId() async {
+    return await _storage.hasUserId();
+  }
+
+  /// Get userId from storage (for debugging)
+  Future<String?> getStoredUserId() async {
+    return await _storage.getUserId();
+  }
+
+  /// Debug method to check auth state
+  Future<void> debugAuthState() async {
+    print('═══════════════════════════════');
+    print('AUTH STATE DEBUG');
+    print('═══════════════════════════════');
+    print('Is Authenticated: $_isAuthenticated');
+    print('Is Loading: $_isLoading');
+    print('Error Message: $_errorMessage');
+    print('User: ${_user?.fullName ?? 'null'}');
+    print('Pending Identifier: $_pendingVerificationIdentifier');
+    print('Has Token: ${await _storage.hasValidToken()}');
+    print('Has UserId: ${await _storage.hasUserId()}');
+    print('UserId: ${await _storage.getUserId()}');
+    print('═══════════════════════════════');
+  }
 }

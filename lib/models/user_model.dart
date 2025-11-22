@@ -59,6 +59,10 @@ class UserModel {
 
   get initials => null;
 
+  get isPhoneVerified => null;
+
+  get isEmailVerified => null;
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

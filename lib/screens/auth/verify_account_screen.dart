@@ -505,8 +505,8 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
     
     final authProvider = context.read<AuthProvider>();
     
-    // Set up for resend
-    authProvider.setPendingVerification(identifier, phone: identifier);
+    // ✅ FIXED: Use setPendingVerification with single parameter
+    authProvider.setPendingVerification(identifier);
     
     final success = await authProvider.resendOtp(
       verificationType: 'signup',
