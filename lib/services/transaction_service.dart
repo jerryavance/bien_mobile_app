@@ -1,6 +1,6 @@
 // ==========================================
 // FILE: lib/services/transaction_service.dart
-// Transaction operations (All Product transactions)
+// Updated transaction operations for real backend
 // ==========================================
 import '../models/transaction_model.dart';
 import '../models/api_response.dart';
@@ -13,114 +13,111 @@ class TransactionService {
   Future<ApiResponse<List<TransactionModel>>> getTransactions({
     int page = 1,
     int limit = 20,
-    TransactionType? type,
-    TransactionStatus? status,
+    String? type,
+    String? status,
+    String? startDate,
+    String? endDate,
+    String? search,
   }) async {
     final queryParams = <String, dynamic>{
       'page': page.toString(),
       'limit': limit.toString(),
     };
 
-    if (type != null) queryParams['type'] = type.name;
-    if (status != null) queryParams['status'] = status.name;
+    if (type != null) queryParams['type'] = type;
+    if (status != null) queryParams['status'] = status;
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
+    if (search != null) queryParams['search'] = search;
 
-    return await _api.get(
-      '/transactions',
+    final response = await _api.get<Map<String, dynamic>>(
+      '/transaction/list',
       queryParams: queryParams,
-      fromJson: (data) => (data as List).map((e) => TransactionModel.fromJson(e)).toList(),
+      fromJson: (data) => data as Map<String, dynamic>,
+    );
+
+    if (response.success && response.data != null) {
+      // Handle different response structures
+      List<dynamic> transactionsList;
+      
+      if (response.data!.containsKey('transactions')) {
+        transactionsList = response.data!['transactions'] as List;
+      } else if (response.data!.containsKey('data')) {
+        transactionsList = response.data!['data'] as List;
+      } else if (response.data is List) {
+        transactionsList = response.data as List;
+      } else {
+        return ApiResponse.error(message: 'Invalid response format');
+      }
+
+      final transactions = transactionsList
+          .map((e) => TransactionModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      return ApiResponse.success(data: transactions);
+    }
+
+    return ApiResponse.error(
+      message: response.message ?? 'Failed to fetch transactions',
     );
   }
 
-  // Get single transaction
-  Future<ApiResponse<TransactionModel>> getTransaction(String id) async {
-    return await _api.get(
-      '/transactions/$id',
-      fromJson: (data) => TransactionModel.fromJson(data),
+  // Get single transaction details
+  Future<ApiResponse<TransactionModel>> getTransaction(String transactionId) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/transaction/$transactionId',
+      fromJson: (data) => data as Map<String, dynamic>,
+    );
+
+    if (response.success && response.data != null) {
+      final transaction = TransactionModel.fromJson(response.data!);
+      return ApiResponse.success(data: transaction);
+    }
+
+    return ApiResponse.error(
+      message: response.message ?? 'Failed to fetch transaction',
     );
   }
 
-  // Buy airtime
-  Future<ApiResponse<TransactionModel>> buyAirtime({
-    required String network,
-    required String phoneNumber,
-    required double amount,
+  // Get transaction summary/statistics
+  Future<ApiResponse<Map<String, dynamic>>> getTransactionSummary({
+    String? period,
+    String? startDate,
+    String? endDate,
   }) async {
-    return await _api.post(
-      '/products/airtime',
-      body: {
-        'network': network,
-        'phone_number': phoneNumber,
-        'amount': amount,
-      },
-      fromJson: (data) => TransactionModel.fromJson(data),
+    final queryParams = <String, dynamic>{};
+    
+    if (period != null) queryParams['period'] = period;
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
+
+    return await _api.get<Map<String, dynamic>>(
+      '/transaction/summary',
+      queryParams: queryParams,
+      fromJson: (data) => data as Map<String, dynamic>,
     );
   }
 
-  // Buy data bundle
-  Future<ApiResponse<TransactionModel>> buyDataBundle({
-    required String network,
-    required String phoneNumber,
-    required String bundleId,
-  }) async {
-    return await _api.post(
-      '/products/data',
-      body: {
-        'network': network,
-        'phone_number': phoneNumber,
-        'bundle_id': bundleId,
-      },
-      fromJson: (data) => TransactionModel.fromJson(data),
+  // Download transaction receipt
+  Future<ApiResponse<String>> getTransactionReceipt(String transactionId) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/transaction/$transactionId/receipt',
+      fromJson: (data) => data as Map<String, dynamic>,
     );
+
+    if (response.success && response.data != null) {
+      final receiptUrl = response.data!['receipt_url'] ?? response.data!['url'];
+      return ApiResponse.success(data: receiptUrl as String);
+    }
+
+    return ApiResponse.error(message: 'Failed to get receipt');
   }
 
-  // Pay utility
-  Future<ApiResponse<TransactionModel>> payUtility({
-    required String provider,
-    required String accountNumber,
-    required double amount,
-  }) async {
-    return await _api.post(
-      '/products/utility',
-      body: {
-        'provider': provider,
-        'account_number': accountNumber,
-        'amount': amount,
-      },
-      fromJson: (data) => TransactionModel.fromJson(data),
-    );
-  }
-
-  // Pay school fees
-  Future<ApiResponse<TransactionModel>> paySchoolFees({
-    required String system,
-    required String studentNumber,
-    required String schoolCode,
-    required double amount,
-  }) async {
-    return await _api.post(
-      '/products/school-fees',
-      body: {
-        'system': system,
-        'student_number': studentNumber,
-        'school_code': schoolCode,
-        'amount': amount,
-      },
-      fromJson: (data) => TransactionModel.fromJson(data),
-    );
-  }
-
-  // Pay merchant
-  Future<ApiResponse<TransactionModel>> payMerchant({
-    required String merchantId,
-    required double amount,
-  }) async {
-    return await _api.post(
-      '/products/merchant',
-      body: {
-        'merchant_id': merchantId,
-        'amount': amount,
-      },
-      fromJson: (data) => TransactionModel.fromJson(data),
+  // Check transaction status
+  Future<ApiResponse<Map<String, dynamic>>> checkTransactionStatus(String transactionId) async {
+    return await _api.get<Map<String, dynamic>>(
+      '/transaction/$transactionId/status',
+      fromJson: (data) => data as Map<String, dynamic>,
     );
   }
 }

@@ -1,6 +1,8 @@
+import 'package:bien/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../core/design_system/app_theme.dart';
 
@@ -54,9 +56,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final identifier = args?['identifier'] ?? '';
-    final isEmail = args?['isEmail'] ?? true;
     final verificationType = args?['verificationType'] ?? 'signup';
+    
+    // Get phone from AuthProvider
+    final authProvider = context.watch<AuthProvider>();
+    final phoneNumber = authProvider.pendingVerificationPhone ?? 'your phone';
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -101,7 +105,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               
               // Title
               Text(
-                'Verify Your ${isEmail ? 'Email' : 'Phone Number'}',
+                'Verify Your Phone Number',
                 style: AppTheme.heading1.copyWith(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -123,7 +127,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       text: 'We\'ve sent a 6-digit verification code to\n',
                     ),
                     TextSpan(
-                      text: identifier,
+                      text: phoneNumber,
                       style: TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -278,53 +282,72 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _errorMessage = null;
     });
     
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() => _isLoading = false);
-    
-    // For demo purposes, accept any 6-digit code
+    final authProvider = context.read<AuthProvider>();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final verificationType = args?['verificationType'] ?? 'signup';
     
-    if (verificationType == 'reset_password') {
-      // Navigate to reset password screen
-      Navigator.pushNamed(
-        context,
-        '/reset-password',
-        arguments: {
-          'identifier': args?['identifier'],
-          'otp': otp,
-        },
-      );
+    final success = await authProvider.verifyOtp(
+      otp: otp,
+      verificationType: verificationType,
+    );
+    
+    setState(() => _isLoading = false);
+    
+    if (success && mounted) {
+      if (verificationType == 'reset_password') {
+        Navigator.pushNamed(
+          context,
+          '/reset-password',
+          arguments: {
+            'otp': otp,
+          },
+        );
+      } else {
+        // Signup or login verification successful
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification successful!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      }
     } else {
-      // Navigate to home screen for signup verification
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Verification successful!'),
-          backgroundColor: AppTheme.successColor,
-        ),
-      );
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      setState(() => _errorMessage = authProvider.errorMessage ?? 'Verification failed');
     }
   }
 
   void _handleResendCode() async {
+    final authProvider = context.read<AuthProvider>();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final verificationType = args?['verificationType'] ?? 'signup';
+    
     setState(() {
       _resendTimer = 60;
       _errorMessage = null;
     });
     _startTimer();
     
-    // Simulate API call to resend code
-    await Future.delayed(const Duration(seconds: 1));
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Verification code sent!'),
-        backgroundColor: AppTheme.successColor,
-      ),
+    final success = await authProvider.resendOtp(
+      verificationType: verificationType,
+      channel: 'sms',
     );
+    
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verification code sent!'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Failed to resend code'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 }
 

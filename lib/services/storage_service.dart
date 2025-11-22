@@ -1,90 +1,122 @@
 // ==========================================
+// STEP 1: Update StorageService for Token Management
 // FILE: lib/services/storage_service.dart
-// Secure local storage
 // ==========================================
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user_model.dart';
 import '../models/auth_tokens.dart';
+import 'dart:convert';
 
 class StorageService {
-  static const String _keyAccessToken = 'access_token';
-  static const String _keyRefreshToken = 'refresh_token';
-  static const String _keyUser = 'user_data';
-  static const String _keyTokenExpiry = 'token_expiry';
+  static const String _accessTokenKey = 'access_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  static const String _userKey = 'user_data';
+  static const String _tokenExpiryKey = 'token_expiry';
+
+  final _secureStorage = const FlutterSecureStorage();
 
   static final StorageService _instance = StorageService._internal();
   factory StorageService() => _instance;
   StorageService._internal();
 
-  Future<SharedPreferences> get _prefs async => await SharedPreferences.getInstance();
-
-  // Auth Tokens
+  // Save tokens
   Future<void> saveTokens(AuthTokens tokens) async {
-    final prefs = await _prefs;
-    await prefs.setString(_keyAccessToken, tokens.accessToken);
-    await prefs.setString(_keyRefreshToken, tokens.refreshToken);
-    await prefs.setString(_keyTokenExpiry, tokens.expiresAt.toIso8601String());
+    try {
+      await Future.wait([
+        _secureStorage.write(key: _accessTokenKey, value: tokens.accessToken),
+        _secureStorage.write(key: _refreshTokenKey, value: tokens.refreshToken),
+        _secureStorage.write(
+          key: _tokenExpiryKey,
+          value: tokens.expiresAt.toIso8601String(),
+        ),
+      ]);
+      print('Tokens saved successfully');
+    } catch (e) {
+      print('Error saving tokens: $e');
+      rethrow;
+    }
   }
 
+  // Get access token
   Future<String?> getAccessToken() async {
-    final prefs = await _prefs;
-    return prefs.getString(_keyAccessToken);
+    try {
+      final token = await _secureStorage.read(key: _accessTokenKey);
+      return token;
+    } catch (e) {
+      print('Error reading access token: $e');
+      return null;
+    }
   }
 
+  // Get refresh token
   Future<String?> getRefreshToken() async {
-    final prefs = await _prefs;
-    return prefs.getString(_keyRefreshToken);
+    try {
+      return await _secureStorage.read(key: _refreshTokenKey);
+    } catch (e) {
+      print('Error reading refresh token: $e');
+      return null;
+    }
   }
 
-  Future<bool> hasValidToken() async {
-    final prefs = await _prefs;
-    final token = prefs.getString(_keyAccessToken);
-    final expiryStr = prefs.getString(_keyTokenExpiry);
-
-    if (token == null || expiryStr == null) return false;
-
-    final expiry = DateTime.parse(expiryStr);
-    return DateTime.now().isBefore(expiry);
-  }
-
-  // User Data
+  // Save user data
   Future<void> saveUser(UserModel user) async {
-    final prefs = await _prefs;
-    await prefs.setString(_keyUser, jsonEncode(user.toJson()));
+    try {
+      await _secureStorage.write(
+        key: _userKey,
+        value: jsonEncode(user.toJson()),
+      );
+      print('User data saved successfully');
+    } catch (e) {
+      print('Error saving user data: $e');
+      rethrow;
+    }
   }
 
+  // Get user data
   Future<UserModel?> getUser() async {
-    final prefs = await _prefs;
-    final userStr = prefs.getString(_keyUser);
-    if (userStr == null) return null;
-    return UserModel.fromJson(jsonDecode(userStr));
+    try {
+      final userJson = await _secureStorage.read(key: _userKey);
+      if (userJson != null) {
+        return UserModel.fromJson(jsonDecode(userJson));
+      }
+      return null;
+    } catch (e) {
+      print('Error reading user data: $e');
+      return null;
+    }
+  }
+
+  // Check if token is valid and not expired
+  Future<bool> hasValidToken() async {
+    try {
+      final token = await getAccessToken();
+      final expiryStr = await _secureStorage.read(key: _tokenExpiryKey);
+
+      if (token == null || expiryStr == null) {
+        return false;
+      }
+
+      final expiry = DateTime.parse(expiryStr);
+      return DateTime.now().isBefore(expiry);
+    } catch (e) {
+      print('Error checking token validity: $e');
+      return false;
+    }
   }
 
   // Clear all data (logout)
   Future<void> clearAll() async {
-    final prefs = await _prefs;
-    await prefs.clear();
-  }
-
-  // Generic key-value storage
-  Future<void> setString(String key, String value) async {
-    final prefs = await _prefs;
-    await prefs.setString(key, value);
-  }
-
-  Future<String?> getString(String key) async {
-    final prefs = await _prefs;
-    return prefs.getString(key);
-  }
-
-  Future<void> setBool(String key, bool value) async {
-    final prefs = await _prefs;
-    await prefs.setBool(key, value);
-  }
-
-  Future<bool?> getBool(String key) async {
-    final prefs = await _prefs;
-    return prefs.getBool(key);
+    try {
+      await Future.wait([
+        _secureStorage.delete(key: _accessTokenKey),
+        _secureStorage.delete(key: _refreshTokenKey),
+        _secureStorage.delete(key: _userKey),
+        _secureStorage.delete(key: _tokenExpiryKey),
+      ]);
+      print('All data cleared successfully');
+    } catch (e) {
+      print('Error clearing storage: $e');
+      rethrow;
+    }
   }
 }

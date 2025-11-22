@@ -1,6 +1,14 @@
+// ==========================================
+// FILE: lib/screens/features/transactions_screen.dart
+// Example of updated screen using real data from backend
+// ==========================================
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../core/design_system/app_theme.dart';
+import '../../providers/transaction_provider.dart';
+import '../../models/transaction_model.dart';
+import '../../core/middleware/auth_guard.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -9,138 +17,131 @@ class TransactionsScreen extends StatefulWidget {
   State<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
-class _TransactionsScreenState extends State<TransactionsScreen> {
-  String _selectedFilter = 'All';
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
+class _TransactionsScreenState extends State<TransactionsScreen>
+    with RouteGuardMixin {
+  final ScrollController _scrollController = ScrollController();
+  String _selectedFilter = 'all';
 
-  final List<String> _filters = ['All', 'Income', 'Expense', 'Pending', 'Failed'];
+  @override
+  void initState() {
+    super.initState();
+    // Fetch transactions on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TransactionProvider>().fetchTransactions(refresh: true);
+    });
 
-  final List<Map<String, dynamic>> _transactions = [
-    {
-      'id': '1',
-      'title': 'Netflix Subscription',
-      'subtitle': 'Entertainment',
-      'amount': 15000.0,
-      'date': DateTime.now().subtract(const Duration(hours: 2)),
-      'status': 'completed',
-      'type': 'expense',
-      'icon': Icons.tv,
-      'color': AppTheme.errorColor,
-    },
-    {
-      'id': '2',
-      'title': 'Salary Deposit',
-      'subtitle': 'Income',
-      'amount': 4200000.0,
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'status': 'completed',
-      'type': 'income',
-      'icon': Icons.account_balance,
-      'color': AppTheme.successColor,
-    },
-    {
-      'id': '3',
-      'title': 'Grocery Shopping',
-      'subtitle': 'Food & Dining',
-      'amount': -87000.0,
-      'date': DateTime.now().subtract(const Duration(days: 2)),
-      'status': 'completed',
-      'type': 'expense',
-      'icon': Icons.shopping_cart,
-      'color': AppTheme.warningColor,
-    },
-    {
-      'id': '4',
-      'title': 'Investment Return',
-      'subtitle': 'Portfolio',
-      'amount': 1560000.0,
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'status': 'completed',
-      'type': 'income',
-      'icon': Icons.trending_up,
-      'color': AppTheme.secondaryColor,
-    },
-    {
-      'id': '5',
-      'title': 'Uber Ride',
-      'subtitle': 'Transportation',
-      'amount': -23000.0,
-      'date': DateTime.now().subtract(const Duration(days: 4)),
-      'status': 'completed',
-      'type': 'expense',
-      'icon': Icons.directions_car,
-      'color': AppTheme.infoColor,
-    },
-    {
-      'id': '6',
-      'title': 'Freelance Payment',
-      'subtitle': 'Income',
-      'amount': 5000000.0,
-      'date': DateTime.now().subtract(const Duration(days: 5)),
-      'status': 'pending',
-      'type': 'income',
-      'icon': Icons.work,
-      'color': AppTheme.accentColor,
-    },
-    {
-      'id': '7',
-      'title': 'Electric Bill',
-      'subtitle': 'Utilities',
-      'amount': -89000.0,
-      'date': DateTime.now().subtract(const Duration(days: 6)),
-      'status': 'completed',
-      'type': 'expense',
-      'icon': Icons.electric_bolt,
-      'color': AppTheme.warningColor,
-    },
-    {
-      'id': '8',
-      'title': 'Amazon Purchase',
-      'subtitle': 'Shopping',
-      'amount': -156000.0,
-      'date': DateTime.now().subtract(const Duration(days: 7)),
-      'status': 'completed',
-      'type': 'expense',
-      'icon': Icons.shopping_bag,
-      'color': AppTheme.primaryColor,
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filteredTransactions {
-    List<Map<String, dynamic>> filtered = _transactions;
-
-    // Filter by type
-    if (_selectedFilter != 'All') {
-      if (_selectedFilter == 'Income') {
-        filtered = filtered.where((t) => t['type'] == 'income').toList();
-      } else if (_selectedFilter == 'Expense') {
-        filtered = filtered.where((t) => t['type'] == 'expense').toList();
-      } else if (_selectedFilter == 'Pending') {
-        filtered = filtered.where((t) => t['status'] == 'pending').toList();
-      } else if (_selectedFilter == 'Failed') {
-        filtered = filtered.where((t) => t['status'] == 'failed').toList();
-      }
-    }
-
-    // Filter by search query
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((t) =>
-          t['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          t['subtitle'].toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    }
-
-    return filtered;
+    // Setup infinite scroll
+    _scrollController.addListener(_onScroll);
   }
 
-  String _formatAmount(double amount) {
-    // Format large UGX amounts with K and M suffixes
-    if (amount.abs() >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount.abs() >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(0)}K';
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      final provider = context.read<TransactionProvider>();
+      if (!provider.isLoading && provider.hasMore) {
+        provider.fetchTransactions();
+      }
     }
-    return amount.toStringAsFixed(0);
+  }
+
+  String _formatCurrency(double amount) {
+    final formatter = NumberFormat('#,###.##', 'en_US');
+    return 'UGX ${formatter.format(amount)}';
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        if (difference.inMinutes == 0) {
+          return 'Just now';
+        }
+        return '${difference.inMinutes}m ago';
+      }
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return DateFormat('MMM d, yyyy').format(date);
+    }
+  }
+
+  Color _getTransactionColor(TransactionModel transaction) {
+    switch (transaction.status) {
+      case TransactionStatus.completed:
+        return AppTheme.successColor;
+      case TransactionStatus.pending:
+        return AppTheme.warningColor;
+      case TransactionStatus.failed:
+        return AppTheme.errorColor;
+      case TransactionStatus.cancelled:
+        return AppTheme.textTertiary;
+    }
+  }
+
+  IconData _getTransactionIcon(TransactionModel transaction) {
+    switch (transaction.type) {
+      case TransactionType.topup:
+        return Icons.add_circle_outline;
+      case TransactionType.cashout:
+        return Icons.remove_circle_outline;
+      case TransactionType.transfer:
+        return Icons.send;
+      case TransactionType.airtime:
+        return Icons.phone_android;
+      case TransactionType.data:
+        return Icons.wifi;
+      case TransactionType.utility:
+        return Icons.bolt;
+      case TransactionType.school:
+        return Icons.school;
+      case TransactionType.merchant:
+        return Icons.store;
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    await context.read<TransactionProvider>().fetchTransactions(refresh: true);
+  }
+
+  void _applyFilter(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+    });
+
+    TransactionType? type;
+    TransactionStatus? status;
+
+    switch (filter) {
+      case 'income':
+        type = TransactionType.topup;
+        break;
+      case 'expense':
+        // Will need multiple types, handle in provider
+        break;
+      case 'pending':
+        status = TransactionStatus.pending;
+        break;
+      case 'completed':
+        status = TransactionStatus.completed;
+        break;
+    }
+
+    context.read<TransactionProvider>().fetchTransactions(
+          refresh: true,
+          type: type,
+          status: status,
+        );
   }
 
   @override
@@ -149,124 +150,122 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Transactions'),
+        backgroundColor: AppTheme.primaryColor,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              _showFilterModal(context);
-            },
+            onPressed: _showFilterBottomSheet,
           ),
         ],
       ),
       body: Column(
         children: [
-          // Search Bar
+          // Filter chips
           Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search transactions...',
-                border: InputBorder.none,
-                icon: Icon(
-                  Icons.search,
-                  color: AppTheme.textSecondary,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear,
-                          color: AppTheme.textSecondary,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-              ),
-            ),
-          ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.3, end: 0, duration: 400.ms),
-
-          // Filter Chips
-          Container(
-            height: 50,
-            margin: const EdgeInsets.only(bottom: 16),
-            child: ListView.builder(
+            height: 60,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filters.length,
-              itemBuilder: (context, index) {
-                final filter = _filters[index];
-                final isSelected = _selectedFilter == filter;
-                return Container(
-                  margin: const EdgeInsets.only(right: 12),
-                  child: FilterChip(
-                    label: Text(filter),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
-                    },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-                    checkmarkColor: AppTheme.primaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3, end: 0, duration: 400.ms),
-
-          // Transaction Count
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${_filteredTransactions.length} transactions',
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                Text(
-                  _getTotalAmount(),
-                  style: AppTheme.heading4.copyWith(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                _buildFilterChip('All', 'all'),
+                _buildFilterChip('Income', 'income'),
+                _buildFilterChip('Expense', 'expense'),
+                _buildFilterChip('Pending', 'pending'),
+                _buildFilterChip('Completed', 'completed'),
               ],
             ),
-          ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3, end: 0, duration: 400.ms),
+          ),
 
-          const SizedBox(height: 16),
-
-          // Transactions List
+          // Transactions list
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filteredTransactions.length,
-              itemBuilder: (context, index) {
-                final transaction = _filteredTransactions[index];
-                return _buildTransactionItem(transaction, index);
+            child: Consumer<TransactionProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading && provider.transactions.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (provider.errorMessage != null &&
+                    provider.transactions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: AppTheme.errorColor,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          provider.errorMessage!,
+                          style: AppTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _onRefresh,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (provider.transactions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.receipt_long_outlined,
+                          size: 64,
+                          color: AppTheme.textTertiary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No transactions yet',
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Your transactions will appear here',
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.transactions.length +
+                        (provider.hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == provider.transactions.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      final transaction = provider.transactions[index];
+                      return _buildTransactionItem(transaction);
+                    },
+                  ),
+                );
               },
             ),
           ),
@@ -275,10 +274,32 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> transaction, int index) {
-    final isIncome = transaction['type'] == 'income';
-    final amount = transaction['amount'] as double;
-    final status = transaction['status'] as String;
+  Widget _buildFilterChip(String label, String value) {
+    final isSelected = _selectedFilter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          if (selected) {
+            _applyFilter(value);
+          }
+        },
+        backgroundColor: AppTheme.surfaceColor,
+        selectedColor: AppTheme.primaryColor,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : AppTheme.textPrimary,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(TransactionModel transaction) {
+    final color = _getTransactionColor(transaction);
+    final icon = _getTransactionIcon(transaction);
+    final isDebit = transaction.amount < 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -297,200 +318,151 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
       child: Row(
         children: [
+          // Icon
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: (transaction['color'] as Color).withOpacity(0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              transaction['icon'] as IconData,
-              color: transaction['color'] as Color,
-              size: 24,
-            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
+
+          // Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction['title'] as String,
+                  transaction.typeLabel,
                   style: AppTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                if (transaction.description != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    transaction.description!,
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        transaction['subtitle'] as String,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      _formatDate(transaction.createdAt),
+                      style: AppTheme.caption.copyWith(
+                        color: AppTheme.textTertiary,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildStatusChip(status),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        transaction.status.name.toUpperCase(),
+                        style: AppTheme.caption.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
+              ],
+            ),
+          ),
+
+          // Amount
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isDebit ? '-' : '+'} ${_formatCurrency(transaction.amount.abs())}',
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDebit ? AppTheme.errorColor : AppTheme.successColor,
+                ),
+              ),
+              if (transaction.fee > 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                  _formatDate(transaction['date'] as DateTime),
+                  'Fee: ${_formatCurrency(transaction.fee)}',
                   style: AppTheme.caption.copyWith(
                     color: AppTheme.textTertiary,
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isIncome ? '+' : '-'}${_formatAmount(amount.abs())}',
-                style: AppTheme.bodyLarge.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isIncome ? AppTheme.successColor : AppTheme.errorColor,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'UGX',
-                style: AppTheme.caption.copyWith(
-                  color: AppTheme.textTertiary,
-                  fontSize: 10,
-                ),
-              ),
             ],
           ),
         ],
       ),
-    ).animate().fadeIn(delay: (600 + index * 100).ms).slideY(begin: 0.3, end: 0, duration: 400.ms);
-  }
-
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'completed':
-        color = AppTheme.successColor;
-        label = 'Done';
-        break;
-      case 'pending':
-        color = AppTheme.warningColor;
-        label = 'Pending';
-        break;
-      case 'failed':
-        color = AppTheme.errorColor;
-        label = 'Failed';
-        break;
-      default:
-        color = AppTheme.textSecondary;
-        label = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: AppTheme.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w500,
-          fontSize: 9,
-        ),
-      ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        return '${difference.inMinutes}m ago';
-      }
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
-  }
-
-  String _getTotalAmount() {
-    double total = 0;
-    for (final transaction in _filteredTransactions) {
-      total += transaction['amount'] as double;
-    }
-    return 'UGX ${_formatAmount(total)}';
-  }
-
-  void _showFilterModal(BuildContext context) {
+  void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.surfaceColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              margin: const EdgeInsets.only(top: 12),
               width: 40,
               height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.textTertiary,
+                color: AppTheme.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Filter Transactions',
-                    style: AppTheme.heading4.copyWith(
-                      color: AppTheme.textPrimary,
+                    style: AppTheme.heading3.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  ..._filters.map((filter) => ListTile(
-                    title: Text(filter),
-                    trailing: _selectedFilter == filter
-                        ? Icon(Icons.check, color: AppTheme.primaryColor)
-                        : null,
+                  const SizedBox(height: 16),
+                  // Add more filter options here
+                  ListTile(
+                    title: const Text('All Transactions'),
                     onTap: () {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
+                      _applyFilter('all');
                       Navigator.pop(context);
                     },
-                  )),
+                  ),
+                  // Add more options...
                 ],
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

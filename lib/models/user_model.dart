@@ -1,15 +1,19 @@
-// User data structure
-
+// ==========================================
+// STEP 2: Update UserModel with Complete Fields
+// FILE: lib/models/user_model.dart
+// ==========================================
 class UserModel {
   final String id;
   final String firstName;
   final String lastName;
   final String email;
   final String phoneNumber;
-  final String? profileImage;
-  final double walletBalance;
-  final int kycLevel;
-  final bool isVerified;
+  final String? profilePicture;
+  final String? bio;
+  final bool emailVerified;
+  final bool phoneVerified;
+  final bool twoFactorEnabled;
+  final String accountStatus; // 'active', 'suspended', 'pending'
   final DateTime createdAt;
   final DateTime? lastLogin;
 
@@ -19,74 +23,57 @@ class UserModel {
     required this.lastName,
     required this.email,
     required this.phoneNumber,
-    this.profileImage,
-    required this.walletBalance,
-    required this.kycLevel,
-    required this.isVerified,
+    this.profilePicture,
+    this.bio,
+    this.emailVerified = false,
+    this.phoneVerified = false,
+    this.twoFactorEnabled = false,
+    this.accountStatus = 'active',
     required this.createdAt,
     this.lastLogin,
   });
 
   String get fullName => '$firstName $lastName';
-  String get initials => '${firstName[0]}${lastName[0]}'.toUpperCase();
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] ?? json['user_id'] ?? '',
-      firstName: json['first_name'] ?? json['firstName'] ?? '',
-      lastName: json['last_name'] ?? json['lastName'] ?? '',
+      id: json['id'] ?? json['userId'] ?? '',
+      firstName: json['firstName'] ?? json['first_name'] ?? '',
+      lastName: json['lastName'] ?? json['last_name'] ?? '',
       email: json['email'] ?? '',
-      phoneNumber: json['phone_number'] ?? json['phoneNumber'] ?? '',
-      profileImage: json['profile_image'] ?? json['profileImage'],
-      walletBalance: (json['wallet_balance'] ?? json['walletBalance'] ?? 0).toDouble(),
-      kycLevel: json['kyc_level'] ?? json['kycLevel'] ?? 1,
-      isVerified: json['is_verified'] ?? json['isVerified'] ?? false,
-      createdAt: DateTime.parse(json['created_at'] ?? json['createdAt'] ?? DateTime.now().toIso8601String()),
-      lastLogin: json['last_login'] != null ? DateTime.parse(json['last_login']) : null,
+      phoneNumber: json['phoneNumber'] ?? json['phone_number'] ?? '',
+      profilePicture: json['profilePicture'] ?? json['profile_picture'],
+      bio: json['bio'],
+      emailVerified: json['emailVerified'] ?? json['email_verified'] ?? false,
+      phoneVerified: json['phoneVerified'] ?? json['phone_verified'] ?? false,
+      twoFactorEnabled: json['twoFactorEnabled'] ?? json['two_factor_enabled'] ?? false,
+      accountStatus: json['accountStatus'] ?? json['account_status'] ?? 'active',
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
+      lastLogin: json['lastLogin'] != null ? DateTime.parse(json['lastLogin']) : null,
     );
   }
+
+  get profileImage => null;
+
+  get initials => null;
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'first_name': firstName,
-      'last_name': lastName,
+      'firstName': firstName,
+      'lastName': lastName,
       'email': email,
-      'phone_number': phoneNumber,
-      'profile_image': profileImage,
-      'wallet_balance': walletBalance,
-      'kyc_level': kycLevel,
-      'is_verified': isVerified,
-      'created_at': createdAt.toIso8601String(),
-      'last_login': lastLogin?.toIso8601String(),
+      'phoneNumber': phoneNumber,
+      'profilePicture': profilePicture,
+      'bio': bio,
+      'emailVerified': emailVerified,
+      'phoneVerified': phoneVerified,
+      'twoFactorEnabled': twoFactorEnabled,
+      'accountStatus': accountStatus,
+      'createdAt': createdAt.toIso8601String(),
+      'lastLogin': lastLogin?.toIso8601String(),
     };
-  }
-
-  UserModel copyWith({
-    String? id,
-    String? firstName,
-    String? lastName,
-    String? email,
-    String? phoneNumber,
-    String? profileImage,
-    double? walletBalance,
-    int? kycLevel,
-    bool? isVerified,
-    DateTime? createdAt,
-    DateTime? lastLogin,
-  }) {
-    return UserModel(
-      id: id ?? this.id,
-      firstName: firstName ?? this.firstName,
-      lastName: lastName ?? this.lastName,
-      email: email ?? this.email,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      profileImage: profileImage ?? this.profileImage,
-      walletBalance: walletBalance ?? this.walletBalance,
-      kycLevel: kycLevel ?? this.kycLevel,
-      isVerified: isVerified ?? this.isVerified,
-      createdAt: createdAt ?? this.createdAt,
-      lastLogin: lastLogin ?? this.lastLogin,
-    );
   }
 }

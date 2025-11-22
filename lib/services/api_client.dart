@@ -1,7 +1,8 @@
 // ==========================================
 // FILE: lib/services/api_client.dart
-// Base HTTP client with interceptors
+// Updated HTTP client for real backend integration
 // ==========================================
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -9,10 +10,10 @@ import '../models/api_response.dart';
 import 'storage_service.dart';
 
 class ApiClient {
-  static const String baseUrl = 'https://api.bienpayments.ug/v1'; // Update with your API URL
+  // UPDATED: Real backend URL
+  static const String baseUrl = 'https://bienug.com/APIs/BienAPINew/api';
   final StorageService _storage = StorageService();
 
-  // Singleton pattern
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
   ApiClient._internal();
@@ -43,16 +44,24 @@ class ApiClient {
       final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
       final headers = await _getHeaders(needsAuth: needsAuth);
 
+      print('GET Request: $uri'); // Debug logging
+
       final response = await http.get(uri, headers: headers).timeout(
         const Duration(seconds: 30),
       );
+
+      print('Response Status: ${response.statusCode}'); // Debug logging
+      print('Response Body: ${response.body}'); // Debug logging
 
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
       return ApiResponse.error(message: 'No internet connection');
     } on HttpException {
       return ApiResponse.error(message: 'Service unavailable');
+    } on TimeoutException {
+      return ApiResponse.error(message: 'Request timeout');
     } catch (e) {
+      print('API Error: $e'); // Debug logging
       return ApiResponse.error(message: 'An error occurred: ${e.toString()}');
     }
   }
@@ -67,18 +76,27 @@ class ApiClient {
       final uri = Uri.parse('$baseUrl$endpoint');
       final headers = await _getHeaders(needsAuth: needsAuth);
 
+      print('POST Request: $uri'); // Debug logging
+      print('Request Body: ${jsonEncode(body)}'); // Debug logging
+
       final response = await http.post(
         uri,
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ).timeout(const Duration(seconds: 30));
 
+      print('Response Status: ${response.statusCode}'); // Debug logging
+      print('Response Body: ${response.body}'); // Debug logging
+
       return _handleResponse<T>(response, fromJson);
     } on SocketException {
       return ApiResponse.error(message: 'No internet connection');
     } on HttpException {
       return ApiResponse.error(message: 'Service unavailable');
+    } on TimeoutException {
+      return ApiResponse.error(message: 'Request timeout');
     } catch (e) {
+      print('API Error: $e'); // Debug logging
       return ApiResponse.error(message: 'An error occurred: ${e.toString()}');
     }
   }
@@ -137,12 +155,13 @@ class ApiClient {
         return ApiResponse.fromJson(jsonData, fromJson);
       } else {
         return ApiResponse.error(
-          message: jsonData['message'] ?? 'Request failed',
+          message: jsonData['message'] ?? jsonData['error'] ?? 'Request failed',
           errors: jsonData['errors'],
           statusCode: response.statusCode,
         );
       }
     } catch (e) {
+      print('Response Parse Error: $e'); // Debug logging
       return ApiResponse.error(
         message: 'Failed to parse response',
         statusCode: response.statusCode,
