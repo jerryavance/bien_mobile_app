@@ -339,19 +339,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final verificationType = args?['verificationType'] ?? 'signup';
     
-    final success = await authProvider.verifyOtp(
-      otp: otp,
-      verificationType: verificationType,
-    );
+    bool success = false;
+    
+    // ✅ Handle different verification types
+    if (verificationType == 'reset_password') {
+      // Password reset flow - verify OTP with reset token
+      success = await authProvider.verifyResetOtp(otp: otp);
+    } else {
+      // Normal signup/login flow - verify OTP with userId
+      success = await authProvider.verifyOtp(
+        otp: otp,
+        verificationType: verificationType,
+      );
+    }
     
     if (success && mounted) {
       if (verificationType == 'reset_password') {
-        Navigator.pushNamed(
+        // Navigate to reset password screen
+        Navigator.pushReplacementNamed(
           context,
           '/reset-password',
-          arguments: {
-            'otp': otp,
-          },
         );
       } else {
         // Signup or login verification successful
@@ -460,21 +467,13 @@ class _OtpInputField extends StatelessWidget {
 
 
 
-
-
-
-
-
-
-
-
-// import 'package:bien/providers/auth_provider.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter/services.dart';
 // import 'package:flutter_animate/flutter_animate.dart';
 // import 'package:provider/provider.dart';
 // import 'dart:async';
 // import '../../core/design_system/app_theme.dart';
+// import '../../providers/auth_provider.dart';
 
 // class OtpVerificationScreen extends StatefulWidget {
 //   const OtpVerificationScreen({super.key});
@@ -490,15 +489,18 @@ class _OtpInputField extends StatelessWidget {
 //   );
 //   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   
-//   bool _isLoading = false;
 //   int _resendTimer = 60;
 //   Timer? _timer;
-//   String? _errorMessage;
 
 //   @override
 //   void initState() {
 //     super.initState();
 //     _startTimer();
+    
+//     // ✅ Automatically trigger first OTP send if coming from login/registration
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       _sendInitialOtpIfNeeded();
+//     });
 //   }
 
 //   @override
@@ -514,6 +516,8 @@ class _OtpInputField extends StatelessWidget {
 //   }
 
 //   void _startTimer() {
+//     _timer?.cancel();
+//     _resendTimer = 60;
 //     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
 //       if (_resendTimer > 0) {
 //         setState(() => _resendTimer--);
@@ -521,6 +525,41 @@ class _OtpInputField extends StatelessWidget {
 //         timer.cancel();
 //       }
 //     });
+//   }
+
+//   /// ✅ Send initial OTP if this is first time on screen
+//   Future<void> _sendInitialOtpIfNeeded() async {
+//     final authProvider = context.read<AuthProvider>();
+//     final identifier = authProvider.pendingVerificationPhone;
+    
+//     // Check if we have a pending identifier but no OTP sent yet
+//     if (identifier != null && identifier.isNotEmpty) {
+//       print('OTP Screen: Found pending identifier: $identifier');
+      
+//       // Check if we need to send the initial OTP
+//       // This happens when user comes from login with unverified account
+//       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+//       final needsInitialSend = args?['needsInitialSend'] as bool? ?? false;
+      
+//       if (needsInitialSend) {
+//         print('OTP Screen: Sending initial OTP...');
+//         final verificationType = args?['verificationType'] ?? 'signup';
+        
+//         final success = await authProvider.resendOtp(
+//           verificationType: verificationType,
+//           channel: 'sms',
+//         );
+        
+//         if (success && mounted) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(
+//               content: Text('Verification code sent to $identifier'),
+//               backgroundColor: AppTheme.successColor,
+//             ),
+//           );
+//         }
+//       }
+//     }
 //   }
 
 //   @override
@@ -621,68 +660,80 @@ class _OtpInputField extends StatelessWidget {
 //                 }),
 //               ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3, end: 0),
               
-//               if (_errorMessage != null) ...[
-//                 const SizedBox(height: 16),
-//                 Container(
-//                   padding: const EdgeInsets.all(12),
-//                   decoration: BoxDecoration(
-//                     color: AppTheme.errorColor.withOpacity(0.1),
-//                     borderRadius: BorderRadius.circular(8),
-//                     border: Border.all(
-//                       color: AppTheme.errorColor.withOpacity(0.3),
-//                     ),
-//                   ),
-//                   child: Row(
-//                     children: [
-//                       Icon(
-//                         Icons.error_outline,
-//                         color: AppTheme.errorColor,
-//                         size: 20,
-//                       ),
-//                       const SizedBox(width: 8),
-//                       Expanded(
-//                         child: Text(
-//                           _errorMessage!,
-//                           style: AppTheme.bodySmall.copyWith(
-//                             color: AppTheme.errorColor,
+//               // Error Message
+//               Consumer<AuthProvider>(
+//                 builder: (context, authProvider, _) {
+//                   if (authProvider.errorMessage != null) {
+//                     return Padding(
+//                       padding: const EdgeInsets.only(top: 16),
+//                       child: Container(
+//                         padding: const EdgeInsets.all(12),
+//                         decoration: BoxDecoration(
+//                           color: AppTheme.errorColor.withOpacity(0.1),
+//                           borderRadius: BorderRadius.circular(8),
+//                           border: Border.all(
+//                             color: AppTheme.errorColor.withOpacity(0.3),
 //                           ),
 //                         ),
+//                         child: Row(
+//                           children: [
+//                             Icon(
+//                               Icons.error_outline,
+//                               color: AppTheme.errorColor,
+//                               size: 20,
+//                             ),
+//                             const SizedBox(width: 8),
+//                             Expanded(
+//                               child: Text(
+//                                 authProvider.errorMessage!,
+//                                 style: AppTheme.bodySmall.copyWith(
+//                                   color: AppTheme.errorColor,
+//                                 ),
+//                               ),
+//                             ),
+//                           ],
+//                         ),
 //                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
+//                     );
+//                   }
+//                   return const SizedBox.shrink();
+//                 },
+//               ),
               
 //               const SizedBox(height: 32),
               
 //               // Verify Button
-//               ElevatedButton(
-//                 onPressed: _isLoading ? null : _handleVerify,
-//                 style: ElevatedButton.styleFrom(
-//                   backgroundColor: AppTheme.primaryColor,
-//                   foregroundColor: Colors.white,
-//                   padding: const EdgeInsets.symmetric(vertical: 16),
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                   elevation: 0,
-//                 ),
-//                 child: _isLoading
-//                     ? SizedBox(
-//                         height: 20,
-//                         width: 20,
-//                         child: CircularProgressIndicator(
-//                           strokeWidth: 2,
-//                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-//                         ),
-//                       )
-//                     : Text(
-//                         'Verify Code',
-//                         style: AppTheme.bodyLarge.copyWith(
-//                           color: Colors.white,
-//                           fontWeight: FontWeight.w600,
-//                         ),
+//               Consumer<AuthProvider>(
+//                 builder: (context, authProvider, _) {
+//                   return ElevatedButton(
+//                     onPressed: authProvider.isLoading ? null : _handleVerify,
+//                     style: ElevatedButton.styleFrom(
+//                       backgroundColor: AppTheme.primaryColor,
+//                       foregroundColor: Colors.white,
+//                       padding: const EdgeInsets.symmetric(vertical: 16),
+//                       shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(12),
 //                       ),
+//                       elevation: 0,
+//                     ),
+//                     child: authProvider.isLoading
+//                         ? SizedBox(
+//                             height: 20,
+//                             width: 20,
+//                             child: CircularProgressIndicator(
+//                               strokeWidth: 2,
+//                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+//                             ),
+//                           )
+//                         : Text(
+//                             'Verify Code',
+//                             style: AppTheme.bodyLarge.copyWith(
+//                               color: Colors.white,
+//                               fontWeight: FontWeight.w600,
+//                             ),
+//                           ),
+//                   );
+//                 },
 //               ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.3, end: 0),
               
 //               const SizedBox(height: 24),
@@ -725,7 +776,8 @@ class _OtpInputField extends StatelessWidget {
 //   }
 
 //   void _onOtpChanged(String value, int index) {
-//     setState(() => _errorMessage = null);
+//     // Clear error when user types
+//     context.read<AuthProvider>().clearError();
     
 //     if (value.isNotEmpty && index < 5) {
 //       _focusNodes[index + 1].requestFocus();
@@ -743,14 +795,14 @@ class _OtpInputField extends StatelessWidget {
 //     final otp = _controllers.map((c) => c.text).join();
     
 //     if (otp.length != 6) {
-//       setState(() => _errorMessage = 'Please enter all 6 digits');
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text('Please enter all 6 digits'),
+//           backgroundColor: AppTheme.errorColor,
+//         ),
+//       );
 //       return;
 //     }
-    
-//     setState(() {
-//       _isLoading = true;
-//       _errorMessage = null;
-//     });
     
 //     final authProvider = context.read<AuthProvider>();
 //     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -760,8 +812,6 @@ class _OtpInputField extends StatelessWidget {
 //       otp: otp,
 //       verificationType: verificationType,
 //     );
-    
-//     setState(() => _isLoading = false);
     
 //     if (success && mounted) {
 //       if (verificationType == 'reset_password') {
@@ -782,8 +832,6 @@ class _OtpInputField extends StatelessWidget {
 //         );
 //         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
 //       }
-//     } else {
-//       setState(() => _errorMessage = authProvider.errorMessage ?? 'Verification failed');
 //     }
 //   }
 
@@ -792,10 +840,6 @@ class _OtpInputField extends StatelessWidget {
 //     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 //     final verificationType = args?['verificationType'] ?? 'signup';
     
-//     setState(() {
-//       _resendTimer = 60;
-//       _errorMessage = null;
-//     });
 //     _startTimer();
     
 //     final success = await authProvider.resendOtp(
@@ -872,3 +916,6 @@ class _OtpInputField extends StatelessWidget {
 //     );
 //   }
 // }
+
+
+

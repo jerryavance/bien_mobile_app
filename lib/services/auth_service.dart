@@ -246,7 +246,7 @@ class AuthService {
   // ==========================================
   
   /// Request password reset - sends OTP to email or phone
-  /// Backend returns: { success: true, data: { userId, message } }
+  /// Backend returns: { success: true, data: { resetToken, message } }
   Future<ApiResponse<Map<String, dynamic>>> forgotPassword(
     String identifier, {
     String identifierType = 'email',
@@ -265,15 +265,6 @@ class AuthService {
 
     print('AuthService: Forgot password response - success: ${response.success}');
     print('AuthService: Forgot password response data: ${response.data}');
-
-    // Store userId if returned (may not be returned in forgot password flow)
-    if (response.success && response.data != null) {
-      final userId = response.data!['userId'] as String?;
-      if (userId != null && userId.isNotEmpty) {
-        await _storage.saveUserId(userId);
-        print('✅ AuthService: UserId stored for password reset: $userId');
-      }
-    }
 
     return response;
   }

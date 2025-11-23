@@ -275,6 +275,13 @@ class AuthProvider with ChangeNotifier {
   // PASSWORD RESET
   // ==========================================
 
+  // Store reset token for the password reset flow
+  String? _resetToken;
+  String? _verifiedResetToken;
+  
+  String? get resetToken => _resetToken;
+  String? get verifiedResetToken => _verifiedResetToken;
+
   Future<bool> forgotPassword(String identifier, {String identifierType = 'email'}) async {
     print('AuthProvider: Requesting password reset for: $identifier');
     _isLoading = true;
@@ -289,10 +296,19 @@ class AuthProvider with ChangeNotifier {
 
       _isLoading = false;
 
-      if (response.success) {
+      if (response.success && response.data != null) {
         print('AuthProvider: Password reset request successful');
+        print('AuthProvider: Response data: ${response.data}');
+        
         // ✅ Store identifier for display and resend
         _pendingVerificationIdentifier = identifier;
+        
+        // ✅ Store resetToken if provided by backend
+        if (response.data!.containsKey('resetToken')) {
+          _resetToken = response.data!['resetToken'] as String?;
+          print('AuthProvider: Reset token stored: $_resetToken');
+        }
+        
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -313,24 +329,38 @@ class AuthProvider with ChangeNotifier {
 
   /// ✅ Password reset flow uses resetToken, not userId
   Future<bool> verifyResetOtp({
-    required String resetToken,
     required String otp,
   }) async {
     print('AuthProvider: Verifying reset OTP...');
+    
+    if (_resetToken == null || _resetToken!.isEmpty) {
+      _errorMessage = 'Session expired. Please request a new password reset.';
+      notifyListeners();
+      return false;
+    }
+    
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       final response = await _authService.verifyResetOtp(
-        resetToken: resetToken,
+        resetToken: _resetToken!,
         otp: otp,
       );
 
       _isLoading = false;
 
-      if (response.success) {
+      if (response.success && response.data != null) {
         print('AuthProvider: Reset OTP verified successfully');
+        print('AuthProvider: Response data: ${response.data}');
+        
+        // ✅ Store verifiedResetToken from response
+        if (response.data!.containsKey('verifiedResetToken')) {
+          _verifiedResetToken = response.data!['verifiedResetToken'] as String?;
+          print('AuthProvider: Verified reset token stored: $_verifiedResetToken');
+        }
+        
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -350,17 +380,23 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> resetPassword({
-    required String verifiedResetToken,
     required String newPassword,
   }) async {
     print('AuthProvider: Resetting password...');
+    
+    if (_verifiedResetToken == null || _verifiedResetToken!.isEmpty) {
+      _errorMessage = 'Session expired. Please verify OTP again.';
+      notifyListeners();
+      return false;
+    }
+    
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       final response = await _authService.resetPassword(
-        verifiedResetToken: verifiedResetToken,
+        verifiedResetToken: _verifiedResetToken!,
         newPassword: newPassword,
       );
 
@@ -370,6 +406,8 @@ class AuthProvider with ChangeNotifier {
         print('AuthProvider: Password reset successful');
         _errorMessage = null;
         _pendingVerificationIdentifier = null;
+        _resetToken = null;
+        _verifiedResetToken = null;
         notifyListeners();
         return true;
       } else {
@@ -385,6 +423,14 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+  
+  /// Clear reset tokens
+  void clearResetTokens() {
+    _resetToken = null;
+    _verifiedResetToken = null;
+    _pendingVerificationIdentifier = null;
+    notifyListeners();
   }
 
   Future<bool> changePassword({
