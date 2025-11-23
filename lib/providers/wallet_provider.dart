@@ -1,6 +1,6 @@
 // ==========================================
 // FILE: lib/providers/wallet_provider.dart
-// Updated wallet state management with real backend
+// Complete wallet state management with real backend
 // ==========================================
 import 'package:flutter/material.dart';
 import '../models/wallet_model.dart';
@@ -18,6 +18,10 @@ class WalletProvider with ChangeNotifier {
   // Processing states
   bool _isProcessingPayment = false;
   String? _paymentStatus;
+  
+  // Available payment methods
+  List<Map<String, dynamic>> _topUpMethods = [];
+  List<Map<String, dynamic>> _cashOutMethods = [];
 
   WalletModel? get wallet => _wallet;
   bool get isLoading => _isLoading;
@@ -27,8 +31,14 @@ class WalletProvider with ChangeNotifier {
   TransactionModel? get lastTransaction => _lastTransaction;
   bool get isProcessingPayment => _isProcessingPayment;
   String? get paymentStatus => _paymentStatus;
+  List<Map<String, dynamic>> get topUpMethods => _topUpMethods;
+  List<Map<String, dynamic>> get cashOutMethods => _cashOutMethods;
 
-  // Fetch wallet balance
+  // ==========================================
+  // WALLET OPERATIONS
+  // ==========================================
+
+  /// Fetch wallet balance
   Future<void> fetchWallet() async {
     _isLoading = true;
     _errorMessage = null;
@@ -48,7 +58,7 @@ class WalletProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Get account details
+  /// Get account details
   Future<Map<String, dynamic>?> getAccountDetails(String accountId) async {
     final response = await _walletService.getAccountDetails(accountId);
     
@@ -61,39 +71,51 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Validate transaction before processing
-  Future<bool> validateTransaction({
-    required String transactionType,
-    required Map<String, dynamic> transactionData,
-  }) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  // ==========================================
+  // PAYMENT METHODS
+  // ==========================================
 
-    final response = await _walletService.validateTransaction(
-      transactionType: transactionType,
-      transactionData: transactionData,
-    );
-
-    _isLoading = false;
-
-    if (response.success) {
-      _errorMessage = null;
+  /// Get available top-up methods
+  Future<List<Map<String, dynamic>>?> getTopUpMethods() async {
+    final response = await _walletService.getTopUpMethods();
+    
+    if (response.success && response.data != null) {
+      _topUpMethods = response.data!;
       notifyListeners();
-      return true;
+      return _topUpMethods;
     } else {
-      _errorMessage = response.message ?? 'Validation failed';
+      _errorMessage = response.message;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
-  // Top-up wallet (deposit)
+  /// Get available cash-out methods
+  Future<List<Map<String, dynamic>>?> getCashOutMethods() async {
+    final response = await _walletService.getCashOutMethods();
+    
+    if (response.success && response.data != null) {
+      _cashOutMethods = response.data!;
+      notifyListeners();
+      return _cashOutMethods;
+    } else {
+      _errorMessage = response.message;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // ==========================================
+  // TOP-UP (DEPOSIT)
+  // ==========================================
+
+  /// Top-up wallet (deposit)
   Future<TransactionModel?> topUp({
     required String source,
     required String phoneNumber,
     required double amount,
     String? destinationAccountId,
+    String? note,
   }) async {
     _isProcessingPayment = true;
     _errorMessage = null;
@@ -105,6 +127,7 @@ class WalletProvider with ChangeNotifier {
       phoneNumber: phoneNumber,
       amount: amount,
       destinationAccountId: destinationAccountId,
+      note: note,
     );
 
     _isProcessingPayment = false;
@@ -127,12 +150,17 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Cash out (withdraw)
+  // ==========================================
+  // CASH OUT (WITHDRAW)
+  // ==========================================
+
+  /// Cash out (withdraw)
   Future<TransactionModel?> cashOut({
     required String method,
     required String destination,
     required double amount,
     String? sourceAccountId,
+    String? note,
     Map<String, dynamic>? additionalData,
   }) async {
     _isProcessingPayment = true;
@@ -145,6 +173,7 @@ class WalletProvider with ChangeNotifier {
       destination: destination,
       amount: amount,
       sourceAccountId: sourceAccountId,
+      note: note,
       additionalData: additionalData,
     );
 
@@ -168,7 +197,11 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Bien to Bien transfer
+  // ==========================================
+  // BIEN TO BIEN TRANSFER
+  // ==========================================
+
+  /// Bien to Bien transfer
   Future<TransactionModel?> transfer({
     required String recipientId,
     required double amount,
@@ -207,7 +240,11 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Buy airtime
+  // ==========================================
+  // UTILITY SERVICES (PLACEHOLDERS)
+  // ==========================================
+
+  /// Buy airtime
   Future<TransactionModel?> buyAirtime({
     required String network,
     required String phoneNumber,
@@ -233,7 +270,6 @@ class WalletProvider with ChangeNotifier {
       _errorMessage = null;
       _paymentStatus = 'Airtime purchased successfully';
       
-      // Refresh wallet balance
       await fetchWallet();
       
       notifyListeners();
@@ -246,7 +282,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Buy data bundle
+  /// Buy data bundle
   Future<TransactionModel?> buyDataBundle({
     required String network,
     required String phoneNumber,
@@ -272,7 +308,6 @@ class WalletProvider with ChangeNotifier {
       _errorMessage = null;
       _paymentStatus = 'Data bundle purchased successfully';
       
-      // Refresh wallet balance
       await fetchWallet();
       
       notifyListeners();
@@ -285,7 +320,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Pay utility bill
+  /// Pay utility bill
   Future<TransactionModel?> payUtility({
     required String provider,
     required String accountNumber,
@@ -311,7 +346,6 @@ class WalletProvider with ChangeNotifier {
       _errorMessage = null;
       _paymentStatus = 'Utility payment successful';
       
-      // Refresh wallet balance
       await fetchWallet();
       
       notifyListeners();
@@ -324,7 +358,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Pay school fees
+  /// Pay school fees
   Future<TransactionModel?> paySchoolFees({
     required String system,
     required String studentNumber,
@@ -352,7 +386,6 @@ class WalletProvider with ChangeNotifier {
       _errorMessage = null;
       _paymentStatus = 'School fees payment successful';
       
-      // Refresh wallet balance
       await fetchWallet();
       
       notifyListeners();
@@ -365,7 +398,7 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Pay merchant
+  /// Pay merchant
   Future<TransactionModel?> payMerchant({
     required String merchantId,
     required double amount,
@@ -389,7 +422,6 @@ class WalletProvider with ChangeNotifier {
       _errorMessage = null;
       _paymentStatus = 'Merchant payment successful';
       
-      // Refresh wallet balance
       await fetchWallet();
       
       notifyListeners();
@@ -402,20 +434,24 @@ class WalletProvider with ChangeNotifier {
     }
   }
 
-  // Clear error
+  // ==========================================
+  // UTILITY METHODS
+  // ==========================================
+
+  /// Clear error
   void clearError() {
     _errorMessage = null;
     _paymentStatus = null;
     notifyListeners();
   }
 
-  // Clear last transaction
+  /// Clear last transaction
   void clearLastTransaction() {
     _lastTransaction = null;
     notifyListeners();
   }
 
-  // Reset provider state
+  /// Reset provider state
   void reset() {
     _wallet = null;
     _isLoading = false;
@@ -423,6 +459,8 @@ class WalletProvider with ChangeNotifier {
     _lastTransaction = null;
     _isProcessingPayment = false;
     _paymentStatus = null;
+    _topUpMethods = [];
+    _cashOutMethods = [];
     notifyListeners();
   }
 }

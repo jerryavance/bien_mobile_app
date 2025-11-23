@@ -1,4 +1,5 @@
 import 'package:bien/screens/auth/verify_account_screen.dart';
+import 'package:bien/screens/wallet/bien_transfer_screen.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -173,6 +174,9 @@ class FintechApp extends StatelessWidget {
         '/top-up': (context) => AuthGuardWidget(
               child: const TopUpScreen(),
             ),
+        '/bien-transfer': (context) => AuthGuardWidget(
+          child: const BienTransferScreen(),
+        ),
         '/airtime': (context) => AuthGuardWidget(
               child: const AirtimeScreen(),
             ),

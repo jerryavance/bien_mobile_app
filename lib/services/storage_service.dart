@@ -1,6 +1,6 @@
 // ==========================================
-// UPDATED: lib/services/storage_service.dart
-// Added userId storage for auth requests
+// FILE: lib/services/storage_service.dart
+// Updated with account ID and validation ref storage
 // ==========================================
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user_model.dart';
@@ -12,7 +12,9 @@ class StorageService {
   static const String _refreshTokenKey = 'refresh_token';
   static const String _userKey = 'user_data';
   static const String _tokenExpiryKey = 'token_expiry';
-  static const String _userIdKey = 'user_id'; // NEW: Store userId separately
+  static const String _userIdKey = 'user_id';
+  static const String _accountIdKey = 'account_id'; // NEW
+  static const String _validationRefKey = 'validation_ref'; // NEW
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -21,10 +23,9 @@ class StorageService {
   StorageService._internal();
 
   // ==========================================
-  // USER ID MANAGEMENT (NEW)
+  // USER ID MANAGEMENT
   // ==========================================
 
-  /// Save userId separately for auth requests
   Future<void> saveUserId(String userId) async {
     try {
       await _secureStorage.write(key: _userIdKey, value: userId);
@@ -35,11 +36,9 @@ class StorageService {
     }
   }
 
-  /// Get userId for auth requests
   Future<String?> getUserId() async {
     try {
       final userId = await _secureStorage.read(key: _userIdKey);
-      print('StorageService: Retrieved userId: $userId');
       return userId;
     } catch (e) {
       print('StorageService: Error reading userId: $e');
@@ -47,17 +46,77 @@ class StorageService {
     }
   }
 
-  /// Check if userId exists
   Future<bool> hasUserId() async {
     final userId = await getUserId();
     return userId != null && userId.isNotEmpty;
   }
 
   // ==========================================
+  // ACCOUNT ID MANAGEMENT (NEW)
+  // ==========================================
+
+  /// Save main account ID for transactions
+  Future<void> saveAccountId(String accountId) async {
+    try {
+      await _secureStorage.write(key: _accountIdKey, value: accountId);
+      print('StorageService: AccountId saved: $accountId');
+    } catch (e) {
+      print('StorageService: Error saving accountId: $e');
+      rethrow;
+    }
+  }
+
+  /// Get main account ID
+  Future<String?> getAccountId() async {
+    try {
+      final accountId = await _secureStorage.read(key: _accountIdKey);
+      return accountId;
+    } catch (e) {
+      print('StorageService: Error reading accountId: $e');
+      return null;
+    }
+  }
+
+  // ==========================================
+  // VALIDATION REFERENCE MANAGEMENT (NEW)
+  // ==========================================
+
+  /// Save validation reference temporarily
+  Future<void> saveValidationRef(String validationRef) async {
+    try {
+      await _secureStorage.write(key: _validationRefKey, value: validationRef);
+      print('StorageService: ValidationRef saved: $validationRef');
+    } catch (e) {
+      print('StorageService: Error saving validationRef: $e');
+      rethrow;
+    }
+  }
+
+  /// Get validation reference
+  Future<String?> getValidationRef() async {
+    try {
+      final validationRef = await _secureStorage.read(key: _validationRefKey);
+      return validationRef;
+    } catch (e) {
+      print('StorageService: Error reading validationRef: $e');
+      return null;
+    }
+  }
+
+  /// Clear validation reference after use
+  Future<void> clearValidationRef() async {
+    try {
+      await _secureStorage.delete(key: _validationRefKey);
+      print('StorageService: ValidationRef cleared');
+    } catch (e) {
+      print('StorageService: Error clearing validationRef: $e');
+    }
+  }
+
+  // ==========================================
   // TOKEN MANAGEMENT
   // ==========================================
 
-  /// Save authentication tokens
   Future<void> saveTokens(AuthTokens tokens) async {
     try {
       await Future.wait([
@@ -75,7 +134,6 @@ class StorageService {
     }
   }
 
-  /// Get access token
   Future<String?> getAccessToken() async {
     try {
       final token = await _secureStorage.read(key: _accessTokenKey);
@@ -86,7 +144,6 @@ class StorageService {
     }
   }
 
-  /// Get refresh token
   Future<String?> getRefreshToken() async {
     try {
       return await _secureStorage.read(key: _refreshTokenKey);
@@ -96,7 +153,6 @@ class StorageService {
     }
   }
 
-  /// Check if token is valid and not expired
   Future<bool> hasValidToken() async {
     try {
       final token = await getAccessToken();
@@ -118,7 +174,6 @@ class StorageService {
   // USER DATA MANAGEMENT
   // ==========================================
 
-  /// Save user data and extract userId
   Future<void> saveUser(UserModel user) async {
     try {
       await Future.wait([
@@ -126,7 +181,6 @@ class StorageService {
           key: _userKey,
           value: jsonEncode(user.toJson()),
         ),
-        // Also save userId separately for easy access
         saveUserId(user.id),
       ]);
       print('StorageService: User data saved successfully');
@@ -136,7 +190,6 @@ class StorageService {
     }
   }
 
-  /// Get user data
   Future<UserModel?> getUser() async {
     try {
       final userJson = await _secureStorage.read(key: _userKey);
@@ -154,7 +207,6 @@ class StorageService {
   // CLEANUP
   // ==========================================
 
-  /// Clear all data (logout)
   Future<void> clearAll() async {
     try {
       await Future.wait([
@@ -162,7 +214,9 @@ class StorageService {
         _secureStorage.delete(key: _refreshTokenKey),
         _secureStorage.delete(key: _userKey),
         _secureStorage.delete(key: _tokenExpiryKey),
-        _secureStorage.delete(key: _userIdKey), // NEW: Clear userId
+        _secureStorage.delete(key: _userIdKey),
+        _secureStorage.delete(key: _accountIdKey),
+        _secureStorage.delete(key: _validationRefKey),
       ]);
       print('StorageService: All data cleared successfully');
     } catch (e) {
@@ -171,13 +225,15 @@ class StorageService {
     }
   }
 
-  /// Clear only pending verification data (keeps authenticated session)
   Future<void> clearPendingVerification() async {
     try {
-      // Only clear userId if user is not fully authenticated
       final hasValidToken = await this.hasValidToken();
       if (!hasValidToken) {
-        await _secureStorage.delete(key: _userIdKey);
+        await Future.wait([
+          _secureStorage.delete(key: _userIdKey),
+          _secureStorage.delete(key: _accountIdKey),
+          _secureStorage.delete(key: _validationRefKey),
+        ]);
         print('StorageService: Pending verification data cleared');
       }
     } catch (e) {

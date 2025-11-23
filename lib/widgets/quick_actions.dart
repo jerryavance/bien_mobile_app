@@ -54,13 +54,22 @@ class QuickActions extends StatelessWidget {
       },
       {
         'icon': Icons.credit_card,
-        'label': 'Cards',
+        'label': 'Bien',
         'color': AppTheme.infoColor,
         'onTap': () {
           // Navigate to cards screen
-          Navigator.pushNamed(context, '/cards');
+          Navigator.pushNamed(context, '/bien-transfer');
         },
       },
+      // {
+      //   'icon': Icons.credit_card,
+      //   'label': 'Cards',
+      //   'color': AppTheme.infoColor,
+      //   'onTap': () {
+      //     // Navigate to cards screen
+      //     Navigator.pushNamed(context, '/cards');
+      //   },
+      // },
       {
         'icon': Icons.savings,
         'label': 'Savings',

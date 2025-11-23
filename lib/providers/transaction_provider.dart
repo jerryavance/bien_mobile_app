@@ -36,7 +36,11 @@ class TransactionProvider with ChangeNotifier {
   DateTime? get endDate => _endDate;
   Map<String, dynamic>? get summary => _summary;
 
-  // Fetch transactions with filters
+  // ==========================================
+  // FETCH TRANSACTIONS
+  // ==========================================
+
+  /// Fetch transactions with filters
   Future<void> fetchTransactions({
     bool refresh = false,
     TransactionType? type,
@@ -49,6 +53,12 @@ class TransactionProvider with ChangeNotifier {
       _transactions = [];
       _currentPage = 1;
       _hasMore = true;
+      // Update filters if provided
+      if (type != null) _selectedType = type.name;
+      if (status != null) _selectedStatus = status.name;
+      if (search != null) _searchQuery = search;
+      if (start != null) _startDate = start;
+      if (end != null) _endDate = end;
     }
 
     if (!_hasMore || _isLoading) return;
@@ -57,105 +67,149 @@ class TransactionProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final response = await _transactionService.getTransactions(
-      page: _currentPage,
-      type: type?.name ?? _selectedType,
-      status: status?.name ?? _selectedStatus,
-      search: search ?? _searchQuery,
-      startDate: (start ?? _startDate)?.toIso8601String(),
-      endDate: (end ?? _endDate)?.toIso8601String(),
-    );
+    try {
+      final response = await _transactionService.getTransactions(
+        page: _currentPage,
+        type: type?.name ?? _selectedType,
+        status: status?.name ?? _selectedStatus,
+        search: search ?? _searchQuery,
+        startDate: (start ?? _startDate)?.toIso8601String(),
+        endDate: (end ?? _endDate)?.toIso8601String(),
+      );
 
-    _isLoading = false;
+      _isLoading = false;
 
-    if (response.success && response.data != null) {
-      if (response.data!.isEmpty) {
-        _hasMore = false;
+      if (response.success && response.data != null) {
+        if (response.data!.isEmpty) {
+          _hasMore = false;
+        } else {
+          _transactions.addAll(response.data!);
+          _currentPage++;
+        }
+        _errorMessage = null;
       } else {
-        _transactions.addAll(response.data!);
-        _currentPage++;
+        _errorMessage = response.message ?? 'Failed to fetch transactions';
       }
-      _errorMessage = null;
-    } else {
-      _errorMessage = response.message ?? 'Failed to fetch transactions';
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Error fetching transactions: $e';
+      print('TransactionProvider.fetchTransactions error: $e');
     }
     
     notifyListeners();
   }
 
-  // Get single transaction
+  // ==========================================
+  // GET SINGLE TRANSACTION
+  // ==========================================
+
+  /// Get single transaction
   Future<TransactionModel?> getTransaction(String transactionId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    final response = await _transactionService.getTransaction(transactionId);
+    try {
+      final response = await _transactionService.getTransaction(transactionId);
 
-    _isLoading = false;
+      _isLoading = false;
 
-    if (response.success && response.data != null) {
-      _errorMessage = null;
-      notifyListeners();
-      return response.data;
-    } else {
-      _errorMessage = response.message ?? 'Failed to fetch transaction';
+      if (response.success && response.data != null) {
+        _errorMessage = null;
+        notifyListeners();
+        return response.data;
+      } else {
+        _errorMessage = response.message ?? 'Failed to fetch transaction';
+        notifyListeners();
+        return null;
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'Error: $e';
       notifyListeners();
       return null;
     }
   }
 
-  // Fetch transaction summary
+  // ==========================================
+  // FETCH SUMMARY
+  // ==========================================
+
+  /// Fetch transaction summary
   Future<void> fetchSummary({
     String? period,
     DateTime? start,
     DateTime? end,
   }) async {
-    final response = await _transactionService.getTransactionSummary(
-      period: period,
-      startDate: start?.toIso8601String(),
-      endDate: end?.toIso8601String(),
-    );
+    try {
+      final response = await _transactionService.getTransactionSummary(
+        period: period,
+        startDate: start?.toIso8601String(),
+        endDate: end?.toIso8601String(),
+      );
 
-    if (response.success && response.data != null) {
-      _summary = response.data;
-      notifyListeners();
+      if (response.success && response.data != null) {
+        _summary = response.data;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('TransactionProvider.fetchSummary error: $e');
     }
   }
 
-  // Get transaction receipt URL
-  Future<String?> getReceiptUrl(String transactionId) async {
-    final response = await _transactionService.getTransactionReceipt(transactionId);
+  // ==========================================
+  // RECEIPT AND STATUS
+  // ==========================================
 
-    if (response.success && response.data != null) {
-      return response.data;
-    } else {
-      _errorMessage = response.message ?? 'Failed to get receipt';
+  /// Get transaction receipt URL
+  Future<String?> getReceiptUrl(String transactionId) async {
+    try {
+      final response = await _transactionService.getTransactionReceipt(transactionId);
+
+      if (response.success && response.data != null) {
+        return response.data;
+      } else {
+        _errorMessage = response.message ?? 'Failed to get receipt';
+        notifyListeners();
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = 'Error: $e';
       notifyListeners();
       return null;
     }
   }
 
-  // Check transaction status
+  /// Check transaction status
   Future<Map<String, dynamic>?> checkTransactionStatus(String transactionId) async {
-    final response = await _transactionService.checkTransactionStatus(transactionId);
+    try {
+      final response = await _transactionService.checkTransactionStatus(transactionId);
 
-    if (response.success && response.data != null) {
-      // Update transaction in list if exists
-      final index = _transactions.indexWhere((t) => t.id == transactionId);
-      if (index != -1 && response.data!.containsKey('status')) {
-        // Update the transaction status
-        _transactions[index] = TransactionModel.fromJson({
-          ..._transactions[index].toJson(),
-          'status': response.data!['status'],
-        });
-        notifyListeners();
+      if (response.success && response.data != null) {
+        // Update transaction in list if exists
+        final index = _transactions.indexWhere((t) => t.id == transactionId);
+        if (index != -1 && response.data!.containsKey('status')) {
+          // Get the updated transaction from response
+          final updatedTx = response.data!['transaction'] as Map<String, dynamic>?;
+          if (updatedTx != null) {
+            _transactions[index] = TransactionModel.fromJson(updatedTx);
+            notifyListeners();
+          }
+        }
+        return response.data;
       }
-      return response.data;
+      return null;
+    } catch (e) {
+      print('TransactionProvider.checkTransactionStatus error: $e');
+      return null;
     }
-    return null;
   }
 
-  // Set filters
+  // ==========================================
+  // FILTERS
+  // ==========================================
+
+  /// Set filters
   void setTypeFilter(String? type) {
     _selectedType = type;
     notifyListeners();
@@ -177,12 +231,12 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Apply filters and refresh
+  /// Apply filters and refresh
   Future<void> applyFilters() async {
     await fetchTransactions(refresh: true);
   }
 
-  // Clear all filters
+  /// Clear all filters
   Future<void> clearFilters() async {
     _selectedType = null;
     _selectedStatus = null;
@@ -192,46 +246,54 @@ class TransactionProvider with ChangeNotifier {
     await fetchTransactions(refresh: true);
   }
 
-  // Get transactions by type
+  // ==========================================
+  // FILTERED GETTERS
+  // ==========================================
+
+  /// Get transactions by type
   List<TransactionModel> getTransactionsByType(TransactionType type) {
     return _transactions.where((t) => t.type == type).toList();
   }
 
-  // Get transactions by status
+  /// Get transactions by status
   List<TransactionModel> getTransactionsByStatus(TransactionStatus status) {
     return _transactions.where((t) => t.status == status).toList();
   }
 
-  // Get pending transactions
+  /// Get pending transactions
   List<TransactionModel> get pendingTransactions {
     return _transactions.where((t) => t.isPending).toList();
   }
 
-  // Get completed transactions
+  /// Get completed transactions
   List<TransactionModel> get completedTransactions {
     return _transactions.where((t) => t.isCompleted).toList();
   }
 
-  // Get failed transactions
+  /// Get failed transactions
   List<TransactionModel> get failedTransactions {
     return _transactions.where((t) => t.isFailed).toList();
   }
 
-  // Calculate total amount by type
+  // ==========================================
+  // CALCULATIONS
+  // ==========================================
+
+  /// Calculate total amount by type
   double getTotalAmount(TransactionType type) {
     return _transactions
         .where((t) => t.type == type && t.isCompleted)
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
-  // Calculate total income
+  /// Calculate total income
   double get totalIncome {
     return _transactions
         .where((t) => t.type == TransactionType.topup && t.isCompleted)
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
-  // Calculate total expenses
+  /// Calculate total expenses
   double get totalExpenses {
     return _transactions
         .where((t) => 
@@ -240,7 +302,11 @@ class TransactionProvider with ChangeNotifier {
         .fold(0.0, (sum, t) => sum + t.amount.abs());
   }
 
-  // Get transactions for today
+  // ==========================================
+  // TIME-BASED GETTERS
+  // ==========================================
+
+  /// Get transactions for today
   List<TransactionModel> get todayTransactions {
     final today = DateTime.now();
     return _transactions.where((t) {
@@ -251,7 +317,7 @@ class TransactionProvider with ChangeNotifier {
     }).toList();
   }
 
-  // Get transactions for this week
+  /// Get transactions for this week
   List<TransactionModel> get weekTransactions {
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
@@ -260,7 +326,7 @@ class TransactionProvider with ChangeNotifier {
         .toList();
   }
 
-  // Get transactions for this month
+  /// Get transactions for this month
   List<TransactionModel> get monthTransactions {
     final now = DateTime.now();
     return _transactions.where((t) {
@@ -269,7 +335,11 @@ class TransactionProvider with ChangeNotifier {
     }).toList();
   }
 
-  // Group transactions by date
+  // ==========================================
+  // GROUPING
+  // ==========================================
+
+  /// Group transactions by date
   Map<String, List<TransactionModel>> get groupedByDate {
     final grouped = <String, List<TransactionModel>>{};
     
@@ -301,13 +371,42 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  // Clear error
+  // ==========================================
+  // TRANSACTION MANAGEMENT
+  // ==========================================
+
+  /// Add transaction to list (useful after creating new transaction)
+  void addTransaction(TransactionModel transaction) {
+    _transactions.insert(0, transaction);
+    notifyListeners();
+  }
+
+  /// Update transaction in list
+  void updateTransaction(TransactionModel transaction) {
+    final index = _transactions.indexWhere((t) => t.id == transaction.id);
+    if (index != -1) {
+      _transactions[index] = transaction;
+      notifyListeners();
+    }
+  }
+
+  /// Remove transaction from list
+  void removeTransaction(String transactionId) {
+    _transactions.removeWhere((t) => t.id == transactionId);
+    notifyListeners();
+  }
+
+  // ==========================================
+  // UTILITY METHODS
+  // ==========================================
+
+  /// Clear error
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
-  // Reset provider state
+  /// Reset provider state
   void reset() {
     _transactions = [];
     _isLoading = false;
@@ -323,24 +422,9 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Add transaction to list (useful after creating new transaction)
-  void addTransaction(TransactionModel transaction) {
-    _transactions.insert(0, transaction);
-    notifyListeners();
-  }
-
-  // Update transaction in list
-  void updateTransaction(TransactionModel transaction) {
-    final index = _transactions.indexWhere((t) => t.id == transaction.id);
-    if (index != -1) {
-      _transactions[index] = transaction;
-      notifyListeners();
-    }
-  }
-
-  // Remove transaction from list
-  void removeTransaction(String transactionId) {
-    _transactions.removeWhere((t) => t.id == transactionId);
-    notifyListeners();
+  /// Refresh all data
+  Future<void> refresh() async {
+    await fetchTransactions(refresh: true);
+    await fetchSummary();
   }
 }
