@@ -3,6 +3,9 @@ import 'package:bien/screens/wallet/bien_transfer_screen.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// 1. Import the bill provider at the top
+import 'package:bien/providers/bill_provider.dart';
+import 'package:bien/screens/bills/bills_home_screen.dart';
 
 import 'services/launch_service.dart';
 import 'core/design_system/app_theme.dart';
@@ -67,6 +70,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => BillProvider()),
       ],
       child: DevicePreview(
         enabled: true,
@@ -159,9 +163,19 @@ class FintechApp extends StatelessWidget {
         '/currency-converter': (context) => AuthGuardWidget(
               child: const CurrencyConverterScreen(),
             ),
+
+
+
         '/bill-payments': (context) => AuthGuardWidget(
               child: const BillPaymentsScreen(),
             ),
+
+        '/bills': (context) => AuthGuardWidget(
+              child: const BillsHomeScreen(),
+            ),
+
+
+
         '/loan-calculator': (context) => AuthGuardWidget(
               child: const LoanCalculatorScreen(),
             ),

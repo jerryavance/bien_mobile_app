@@ -55,13 +55,13 @@ class UserModel {
     );
   }
 
-  get profileImage => null;
+  Null get profileImage => null;
 
-  get initials => null;
+  Null get initials => null;
 
-  get isPhoneVerified => null;
+  Null get isPhoneVerified => null;
 
-  get isEmailVerified => null;
+  Null get isEmailVerified => null;
 
   Map<String, dynamic> toJson() {
     return {

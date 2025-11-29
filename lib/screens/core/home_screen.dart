@@ -5,7 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/design_system/app_theme.dart';
 import '../../widgets/recent_transactions.dart';
-import '../../widgets/stats_grid.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/wallet_provider.dart';
 import 'profile_screen.dart';

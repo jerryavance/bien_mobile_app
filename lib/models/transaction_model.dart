@@ -65,7 +65,7 @@ class TransactionModel {
     );
   }
 
-  get recipientName => null;
+  Null get recipientName => null;
 
   Map<String, dynamic> toJson() {
     return {
