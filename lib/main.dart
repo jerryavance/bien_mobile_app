@@ -1,20 +1,26 @@
+// ==========================================
+// FILE: lib/main.dart
+// UPDATED: Added CardProvider and card routes
+// ==========================================
 import 'package:bien/screens/auth/verify_account_screen.dart';
 import 'package:bien/screens/wallet/bien_transfer_screen.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// 1. Import the bill provider at the top
-import 'package:bien/providers/bill_provider.dart';
-import 'package:bien/screens/bills/bills_home_screen.dart';
-
-import 'services/launch_service.dart';
-import 'core/design_system/app_theme.dart';
-import 'core/middleware/auth_guard.dart';
 
 // Providers
+import 'package:bien/providers/bill_provider.dart';
+import 'package:bien/providers/card_provider.dart'; // NEW
 import 'providers/auth_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/transaction_provider.dart';
+
+// Services
+import 'services/launch_service.dart';
+
+// Theme
+import 'core/design_system/app_theme.dart';
+import 'core/middleware/auth_guard.dart';
 
 // Core screens
 import 'screens/core/home_screen.dart';
@@ -23,21 +29,14 @@ import 'screens/core/profile_screen.dart';
 import 'screens/core/settings_screen.dart';
 import 'screens/core/scan_to_pay_screen.dart';
 
-// Features screens
+// Feature screens
 import 'screens/features/transactions_screen.dart';
-import 'screens/features/investment_screen.dart';
-import 'screens/features/budget_screen.dart';
 import 'screens/features/analytics_screen.dart';
 import 'screens/features/cards_screen.dart';
-import 'screens/features/savings_screen.dart';
 import 'screens/features/send_money_screen.dart';
 import 'screens/features/notifications_screen.dart';
 import 'screens/features/help_support_screen.dart';
 import 'screens/features/security_settings_screen.dart';
-import 'screens/features/currency_converter_screen.dart';
-import 'screens/features/bill_payments_screen.dart';
-import 'screens/features/loan_calculator_screen.dart';
-import 'screens/features/tax_calculator_screen.dart';
 
 // Auth screens
 import 'screens/auth/login_screen.dart';
@@ -54,12 +53,12 @@ import 'screens/onboarding/splash_screen.dart';
 import 'screens/wallet/cashout_screen.dart';
 import 'screens/wallet/topup_screen.dart';
 
-// Product screens
-import 'screens/products/airtime_screen.dart';
-import 'screens/products/data_bundles_screen.dart';
-import 'screens/products/merchant_pay_screen.dart';
-import 'screens/products/school_fees_screen.dart';
-import 'screens/products/utility_payment_screen.dart';
+// Bill screens
+import 'package:bien/screens/bills/bills_home_screen.dart';
+
+// Card screens (NEW)
+import 'screens/cards/card_topup_screen.dart';
+import 'screens/cards/card_transfer_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +70,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => BillProvider()),
+        ChangeNotifierProvider(create: (_) => CardProvider()), // NEW
       ],
       child: DevicePreview(
         enabled: true,
@@ -121,12 +121,6 @@ class FintechApp extends StatelessWidget {
         '/transactions': (context) => AuthGuardWidget(
               child: const TransactionsScreen(),
             ),
-        '/investments': (context) => AuthGuardWidget(
-              child: const InvestmentScreen(),
-            ),
-        '/budget': (context) => AuthGuardWidget(
-              child: const BudgetScreen(),
-            ),
         '/analytics': (context) => AuthGuardWidget(
               child: const AnalyticsScreen(),
             ),
@@ -145,9 +139,6 @@ class FintechApp extends StatelessWidget {
         '/cards': (context) => AuthGuardWidget(
               child: const CardsScreen(),
             ),
-        '/savings': (context) => AuthGuardWidget(
-              child: const SavingsScreen(),
-            ),
         '/send-money': (context) => AuthGuardWidget(
               child: const SendMoneyScreen(),
             ),
@@ -160,27 +151,8 @@ class FintechApp extends StatelessWidget {
         '/security-settings': (context) => AuthGuardWidget(
               child: const SecuritySettingsScreen(),
             ),
-        '/currency-converter': (context) => AuthGuardWidget(
-              child: const CurrencyConverterScreen(),
-            ),
-
-
-
-        '/bill-payments': (context) => AuthGuardWidget(
-              child: const BillPaymentsScreen(),
-            ),
-
         '/bills': (context) => AuthGuardWidget(
               child: const BillsHomeScreen(),
-            ),
-
-
-
-        '/loan-calculator': (context) => AuthGuardWidget(
-              child: const LoanCalculatorScreen(),
-            ),
-        '/tax-calculator': (context) => AuthGuardWidget(
-              child: const TaxCalculatorScreen(),
             ),
         '/cash-out': (context) => AuthGuardWidget(
               child: const CashOutScreen(),
@@ -189,22 +161,15 @@ class FintechApp extends StatelessWidget {
               child: const TopUpScreen(),
             ),
         '/bien-transfer': (context) => AuthGuardWidget(
-          child: const BienTransferScreen(),
-        ),
-        '/airtime': (context) => AuthGuardWidget(
-              child: const AirtimeScreen(),
+              child: const BienTransferScreen(),
             ),
-        '/data-bundles': (context) => AuthGuardWidget(
-              child: const DataBundlesScreen(),
+        
+        // Card routes (NEW)
+        '/card-topup': (context) => AuthGuardWidget(
+              child: const CardTopUpScreen(),
             ),
-        '/merchant-pay': (context) => AuthGuardWidget(
-              child: const MerchantPayScreen(),
-            ),
-        '/school-fees': (context) => AuthGuardWidget(
-              child: const SchoolFeesScreen(),
-            ),
-        '/utility-payment': (context) => AuthGuardWidget(
-              child: const UtilityPaymentScreen(),
+        '/card-transfer': (context) => AuthGuardWidget(
+              child: const CardTransferScreen(),
             ),
       };
 
@@ -251,7 +216,6 @@ class _InitialRouteResolver extends StatelessWidget {
   }
 
   Future<String> _determineInitialRoute(BuildContext context) async {
-    // Check if user is authenticated
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.initialize();
 
@@ -259,7 +223,6 @@ class _InitialRouteResolver extends StatelessWidget {
       return '/home';
     }
 
-    // Check if onboarding has been shown
     final onboardingShown = await LaunchService.initialRoute();
     return onboardingShown == '/login' ? '/login' : '/splash';
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import '../../core/design_system/app_theme.dart';
 import '../../providers/wallet_provider.dart';
 import '../../widgets/stats_grid.dart';

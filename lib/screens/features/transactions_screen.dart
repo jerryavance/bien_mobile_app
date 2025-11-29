@@ -151,10 +151,12 @@ class _TransactionsScreenState extends State<TransactionsScreen>
       appBar: AppBar(
         title: const Text('Transactions'),
         backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,  // Add this line
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),  // Add this line
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(Icons.filter_list, color: Colors.white),  // Add color
             onPressed: _showFilterBottomSheet,
           ),
         ],

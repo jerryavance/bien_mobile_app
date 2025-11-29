@@ -1,3 +1,7 @@
+// ==========================================
+// FILE: lib/screens/auth/login_screen.dart
+// FIXED: Proper navigation after successful login
+// ==========================================
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -436,6 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ✅ FIXED: Proper navigation handling
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = context.read<AuthProvider>();
@@ -446,15 +451,27 @@ class _LoginScreenState extends State<LoginScreen> {
         rememberMe: _rememberMe,
       );
 
-      if (success && mounted) {
-        // Navigate to home screen
-        Navigator.pushReplacementNamed(context, '/home');
-      } else if (mounted) {
+      if (!mounted) return;
+
+      if (success) {
+        // ✅ CRITICAL FIX: Use pushNamedAndRemoveUntil to prevent going back to login
+        print('LoginScreen: Login successful, navigating to home...');
+        
+        // Wait a brief moment for state to fully update
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        if (!mounted) return;
+        
+        // Navigate and remove all previous routes
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home',
+          (route) => false, // Remove all previous routes
+        );
+      } else {
         // Check if verification is required
         final errorMsg = authProvider.errorMessage?.toLowerCase() ?? '';
         
         if (errorMsg.contains('verify') || errorMsg.contains('pending')) {
-          // Show dialog asking user if they want to verify
           _showVerificationDialog();
         }
       }
@@ -520,17 +537,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _navigateToVerification() {
     final authProvider = context.read<AuthProvider>();
-    
-    // ✅ FIXED: Use setPendingVerification with single parameter
     authProvider.setPendingVerification(_identifierController.text.trim());
     
-    // ✅ NEW: Pass needsInitialSend flag to trigger automatic OTP send
     Navigator.pushNamed(
       context,
       '/otp-verification',
       arguments: {
         'verificationType': 'signup',
-        'needsInitialSend': true, // This tells OTP screen to send OTP automatically
+        'needsInitialSend': true,
       },
     );
   }
