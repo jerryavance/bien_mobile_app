@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../core/design_system/app_theme.dart';
+import '../../providers/auth_provider.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -18,15 +20,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   
-  bool _isLoading = false;
   int _resendTimer = 60;
   Timer? _timer;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    
+    // ✅ Automatically trigger first OTP send if coming from login/registration
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sendInitialOtpIfNeeded();
+    });
   }
 
   @override
@@ -42,6 +47,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _startTimer() {
+    _timer?.cancel();
+    _resendTimer = 60;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendTimer > 0) {
         setState(() => _resendTimer--);
@@ -51,12 +58,49 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
   }
 
+  /// ✅ Send initial OTP if this is first time on screen
+  Future<void> _sendInitialOtpIfNeeded() async {
+    final authProvider = context.read<AuthProvider>();
+    final identifier = authProvider.pendingVerificationPhone;
+    
+    // Check if we have a pending identifier but no OTP sent yet
+    if (identifier != null && identifier.isNotEmpty) {
+      print('OTP Screen: Found pending identifier: $identifier');
+      
+      // Check if we need to send the initial OTP
+      // This happens when user comes from login with unverified account
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final needsInitialSend = args?['needsInitialSend'] as bool? ?? false;
+      
+      if (needsInitialSend) {
+        print('OTP Screen: Sending initial OTP...');
+        final verificationType = args?['verificationType'] ?? 'signup';
+        
+        final success = await authProvider.resendOtp(
+          verificationType: verificationType,
+          channel: 'sms',
+        );
+        
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Verification code sent to $identifier'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final identifier = args?['identifier'] ?? '';
-    final isEmail = args?['isEmail'] ?? true;
     final verificationType = args?['verificationType'] ?? 'signup';
+    
+    // Get phone from AuthProvider
+    final authProvider = context.watch<AuthProvider>();
+    final phoneNumber = authProvider.pendingVerificationPhone ?? 'your phone';
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -101,7 +145,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               
               // Title
               Text(
-                'Verify Your ${isEmail ? 'Email' : 'Phone Number'}',
+                'Verify Your Phone Number',
                 style: AppTheme.heading1.copyWith(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -123,7 +167,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       text: 'We\'ve sent a 6-digit verification code to\n',
                     ),
                     TextSpan(
-                      text: identifier,
+                      text: phoneNumber,
                       style: TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -147,68 +191,80 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 }),
               ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3, end: 0),
               
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.errorColor.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: AppTheme.errorColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: AppTheme.errorColor,
+              // Error Message
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  if (authProvider.errorMessage != null) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.errorColor.withOpacity(0.3),
                           ),
                         ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: AppTheme.errorColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                authProvider.errorMessage!,
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.errorColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
               
               const SizedBox(height: 32),
               
               // Verify Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleVerify,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(
-                        'Verify Code',
-                        style: AppTheme.bodyLarge.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  return ElevatedButton(
+                    onPressed: authProvider.isLoading ? null : _handleVerify,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
+                    ),
+                    child: authProvider.isLoading
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Verify Code',
+                            style: AppTheme.bodyLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  );
+                },
               ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.3, end: 0),
               
               const SizedBox(height: 24),
@@ -251,7 +307,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _onOtpChanged(String value, int index) {
-    setState(() => _errorMessage = null);
+    // Clear error when user types
+    context.read<AuthProvider>().clearError();
     
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
@@ -269,62 +326,80 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final otp = _controllers.map((c) => c.text).join();
     
     if (otp.length != 6) {
-      setState(() => _errorMessage = 'Please enter all 6 digits');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter all 6 digits'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
       return;
     }
     
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() => _isLoading = false);
-    
-    // For demo purposes, accept any 6-digit code
+    final authProvider = context.read<AuthProvider>();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final verificationType = args?['verificationType'] ?? 'signup';
     
+    bool success = false;
+    
+    // ✅ Handle different verification types
     if (verificationType == 'reset_password') {
-      // Navigate to reset password screen
-      Navigator.pushNamed(
-        context,
-        '/reset-password',
-        arguments: {
-          'identifier': args?['identifier'],
-          'otp': otp,
-        },
-      );
+      // Password reset flow - verify OTP with reset token
+      success = await authProvider.verifyResetOtp(otp: otp);
     } else {
-      // Navigate to home screen for signup verification
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Verification successful!'),
-          backgroundColor: AppTheme.successColor,
-        ),
+      // Normal signup/login flow - verify OTP with userId
+      success = await authProvider.verifyOtp(
+        otp: otp,
+        verificationType: verificationType,
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    }
+    
+    if (success && mounted) {
+      if (verificationType == 'reset_password') {
+        // Navigate to reset password screen
+        Navigator.pushReplacementNamed(
+          context,
+          '/reset-password',
+        );
+      } else {
+        // Signup or login verification successful
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification successful!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      }
     }
   }
 
   void _handleResendCode() async {
-    setState(() {
-      _resendTimer = 60;
-      _errorMessage = null;
-    });
+    final authProvider = context.read<AuthProvider>();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final verificationType = args?['verificationType'] ?? 'signup';
+    
     _startTimer();
     
-    // Simulate API call to resend code
-    await Future.delayed(const Duration(seconds: 1));
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Verification code sent!'),
-        backgroundColor: AppTheme.successColor,
-      ),
+    final success = await authProvider.resendOtp(
+      verificationType: verificationType,
+      channel: 'sms',
     );
+    
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verification code sent!'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Failed to resend code'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 }
 

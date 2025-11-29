@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/design_system/app_theme.dart';
+import '../../providers/auth_provider.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -12,7 +14,6 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
-  bool _isLoading = false;
   bool _isEmail = true;
 
   @override
@@ -181,34 +182,78 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 const SizedBox(height: 32),
                 
                 // Send Code Button
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleSendCode,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    return ElevatedButton(
+                      onPressed: authProvider.isLoading ? null : _handleSendCode,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: authProvider.isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Send Verification Code',
+                              style: AppTheme.bodyLarge.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    );
+                  },
+                ).animate().fadeIn(delay: 1000.ms).slideY(begin: 0.3, end: 0),
+                
+                // Error Message
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    if (authProvider.errorMessage != null) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.errorColor.withOpacity(0.3),
+                            ),
                           ),
-                        )
-                      : Text(
-                          'Send Verification Code',
-                          style: AppTheme.bodyLarge.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: AppTheme.errorColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authProvider.errorMessage!,
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.errorColor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                ).animate().fadeIn(delay: 1000.ms).slideY(begin: 0.3, end: 0),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
                 
                 const SizedBox(height: 24),
                 
@@ -244,23 +289,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   void _handleSendCode() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      final authProvider = context.read<AuthProvider>();
       
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-      
-      setState(() => _isLoading = false);
-      
-      // Navigate to OTP screen
-      Navigator.pushNamed(
-        context,
-        '/otp-verification',
-        arguments: {
-          'identifier': _identifierController.text,
-          'isEmail': _isEmail,
-          'verificationType': 'reset_password',
-        },
+      final success = await authProvider.forgotPassword(
+        _identifierController.text.trim(),
+        identifierType: _isEmail ? 'email' : 'phone',
       );
+      
+      if (success && mounted) {
+        // Navigate to OTP verification for password reset
+        Navigator.pushNamed(
+          context,
+          '/otp-verification',
+          arguments: {
+            'verificationType': 'reset_password',
+            'needsInitialSend': false, // OTP already sent by forgotPassword
+          },
+        );
+      }
     }
   }
 }

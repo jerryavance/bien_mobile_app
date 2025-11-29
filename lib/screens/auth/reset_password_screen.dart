@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/design_system/app_theme.dart';
+import '../../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -15,7 +17,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  bool _isLoading = false;
 
   // Password strength indicators
   bool _hasMinLength = false;
@@ -51,8 +52,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
@@ -255,34 +254,78 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const SizedBox(height: 32),
                 
                 // Reset Password Button
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleResetPassword,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    return ElevatedButton(
+                      onPressed: authProvider.isLoading ? null : _handleResetPassword,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: authProvider.isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Reset Password',
+                              style: AppTheme.bodyLarge.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    );
+                  },
+                ).animate().fadeIn(delay: 1200.ms).slideY(begin: 0.3, end: 0),
+                
+                // Error Message
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    if (authProvider.errorMessage != null) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.errorColor.withOpacity(0.3),
+                            ),
                           ),
-                        )
-                      : Text(
-                          'Reset Password',
-                          style: AppTheme.bodyLarge.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: AppTheme.errorColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authProvider.errorMessage!,
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.errorColor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                ).animate().fadeIn(delay: 1200.ms).slideY(begin: 0.3, end: 0),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ],
             ),
           ),
@@ -293,87 +336,93 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   void _handleResetPassword() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      final authProvider = context.read<AuthProvider>();
       
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-      
-      setState(() => _isLoading = false);
-      
-      // Show success message
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppTheme.successColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.check_circle_outline,
-                  color: AppTheme.successColor,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Password Reset Successful!',
-                style: AppTheme.heading3.copyWith(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your password has been successfully reset. You can now sign in with your new password.',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login',
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Go to Sign In',
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      // ✅ Call resetPassword with just the new password
+      // verifiedResetToken is already stored in AuthProvider
+      final success = await authProvider.resetPassword(
+        newPassword: _passwordController.text,
       );
+      
+      if (success && mounted) {
+        // Clear reset tokens
+        authProvider.clearResetTokens();
+        
+        // Show success dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppTheme.successColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_circle_outline,
+                    color: AppTheme.successColor,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Password Reset Successful!',
+                  style: AppTheme.heading3.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your password has been successfully reset. You can now sign in with your new password.',
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Go to Sign In',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     }
   }
 }
